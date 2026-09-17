@@ -56,22 +56,23 @@ if __name__ == "__main__":
         "altitude": 550,
         "direcao": 180,
         "velocidade": 12,
-        "estado": "anormal"
+        "estadoMPU": "anormal",
+        "estadoBPM": "normal"
     }
 
     SensorMPU = {
         "status": str(dados_teste.get("status", "online")).upper(),
         "direcao": f"{dados_teste.get('direcao', 0)} deg",
         "velocidade": f"{dados_teste.get('velocidade', 0)} m/s",
-        "estado": str(dados_teste.get("estado", "normal")).upper()
+        "estado": str(dados_teste.get("estadoMPU", "normal")).upper()
     }
 
     SensorBPM = {
-        "status": str(dados_teste.get("status", "online")).upper(),
+        "status": str(dados_teste.get("status", "offline")).upper(),
         "pressao": f"{dados_teste.get('pressao', 0)} hPa",
         "temperatura": f"{dados_teste.get('temperatura', 0)}° C",
         "altitude": f"{dados_teste.get('altitude', 0)} m",
-        "estado": str(dados_teste.get("estado", "normal")).upper()
+        "estado": str(dados_teste.get("estadoBPM", "normal")).upper()
     }
 
     while True:
