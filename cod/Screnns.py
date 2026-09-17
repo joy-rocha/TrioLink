@@ -27,8 +27,7 @@ def carregar_fonte_simbolos(tamanho):
             continue
     return ImageFont.load_default()
 
-fonte_simbolo = carregar_fonte_simbolos(18)
-fonte_simbolo_grande = carregar_fonte_simbolos(55)
+fonte_simbolo = carregar_fonte_simbolos(15)
 # ----------------------------------------------------------------------------
 
 # Cores
@@ -126,7 +125,6 @@ def Display_ScrennOFF(device):
         # BACKGROUND DE FUNDO
         draw.rectangle((0, 0, 320, 240), fill=COR_FUNDO, outline=None)
 
-        draw.text((15, 6), "DESLIGAR SISTEMA", fill=COR_TEXTO, font=fonte_titulo)
         draw.text((220, 4), "❮", fill=COR_TEXTO, font=fonte_simbolo)
         draw.text((240, 6), "VOLTAR", fill=COR_TEXTO, font=fonte_titulo)
 
