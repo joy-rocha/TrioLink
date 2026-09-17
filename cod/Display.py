@@ -2,6 +2,9 @@ import sys
 import pygame
 from luma.emulator.device import pygame as pygame_device
 
+import json
+import subprocess
+
 # Tenta importar evdev (presente no Linux/Raspberry Pi)
 try:
     import evdev
@@ -47,32 +50,35 @@ def Display_TrateClick(x, y):
                 tela_atual = "MAIN"
 
 
+def obter_dados_do_c():
+    try:
+        # Executa o programa C e captura o JSON impresso no stdout
+        resultado = subprocess.run(["./meu_programa"], capture_output=True, text=True, check=True)
+        return json.loads(resultado.stdout)
+    except Exception as e:
+        print(f"Erro ao ler dados do C: {e}")
+        return {}
+
 # DADOS DE TESTE E CÓDIGO PRINCIPAL
 if __name__ == "__main__":
-    dados_teste = {
-        "status": "online",
-        "pressao": 1013,
-        "temperatura": 26,
-        "altitude": 550,
-        "direcao": 180,
-        "velocidade": 12,
-        "estadoMPU": "anormal",
-        "estadoBPM": "normal"
-    }
+
+    dados = obter_dados_do_c()# Captura os dados do C
+    dados_bmp = dados.get("bmp", {})# Separa os dados de cada sensor
+    dados_mpu = dados.get("mpu", {})
 
     SensorMPU = {
-        "status": str(dados_teste.get("status", "online")).upper(),
-        "direcao": f"{dados_teste.get('direcao', 0)} deg",
-        "velocidade": f"{dados_teste.get('velocidade', 0)} m/s",
-        "estado": str(dados_teste.get("estadoMPU", "normal")).upper()
+        "status": str(dados_mpu.get("status", "online")).upper(),
+        "direcao": f"{dados_mpu.get('direcao', 0)} deg",
+        "velocidade": f"{dados_mpu.get('velocidade', 0)} m/s",
+        "estado": str(dados_mpu.get("estadoMPU", "normal")).upper()
     }
 
     SensorBPM = {
-        "status": str(dados_teste.get("status", "offline")).upper(),
-        "pressao": f"{dados_teste.get('pressao', 0)} hPa",
-        "temperatura": f"{dados_teste.get('temperatura', 0)}° C",
-        "altitude": f"{dados_teste.get('altitude', 0)} m",
-        "estado": str(dados_teste.get("estadoBPM", "normal")).upper()
+        "status": str(dados_bmp.get("status", "offline")).upper(),
+        "pressao": f"{dados_bmp.get('pressao', 0)} hPa",
+        "temperatura": f"{dados_bmp.get('temperatura', 0)}° C",
+        "altitude": f"{dados_bmp.get('altitude', 0)} m",
+        "estado": str(dados_bmp.get("estadoBPM", "normal")).upper()
     }
 
     while True:

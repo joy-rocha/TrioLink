@@ -24,22 +24,22 @@ cJSON* processar_dados_bmp(const char* json_amigo_bmp) {
     }
 
     // 3. Cria o JSON refinado para o Python ler (com conversão Pa -> hPa)
-    cJSON *json_out = cJSON_CreateObject();
-    cJSON_AddStringToObject(json_out, "status", "online");
-    cJSON_AddNumberToObject(json_out, "temperatura", temp->valuedouble);
-    cJSON_AddNumberToObject(json_out, "pressao", press->valuedouble / 100.0); 
-    cJSON_AddNumberToObject(json_out, "altitude", alt->valuedouble);
+    cJSON *json_BMP = cJSON_CreateObject();
+    cJSON_AddStringToObject(json_BMP, "status", "online");
+    cJSON_AddNumberToObject(json_BMP, "temperatura", temp->valuedouble);
+    cJSON_AddNumberToObject(json_BMP, "pressao", press->valuedouble / 100.0); 
+    cJSON_AddNumberToObject(json_BMP, "altitude", alt->valuedouble);
 
     // 4. REGRA DE ESTADO (Definindo o que é Anormal)
     // Usando 57°C como limite de temperatura anormal conforme você solicitou antes
     if (temp->valuedouble >= 57.0) {
-        cJSON_AddStringToObject(json_out, "estado", "anormal");
+        cJSON_AddStringToObject(json_BMP, "estado", "anormal");
     } else {
-        cJSON_AddStringToObject(json_out, "estado", "normal");
+        cJSON_AddStringToObject(json_BMP, "estado", "normal");
     }
 
     // Libera a memória do JSON bruto
     cJSON_Delete(json_in);
 
-    return json_out;
+    return json_BMP;
 }

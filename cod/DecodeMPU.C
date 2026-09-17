@@ -39,20 +39,20 @@ cJSON* processar_dados_mpu(const char* json_amigo_mpu) { // formata o json bruto
        vamos enviar a magnitude da aceleração para a chave "velocidade" da sua interface. */
 
     // 4. Cria o JSON refinado para o Python ler
-    cJSON *json_out = cJSON_CreateObject();
-    cJSON_AddStringToObject(json_out, "status", "online"); // adcionando um campo no json
-    cJSON_AddNumberToObject(json_out, "direcao", round(direcao_graus * 10) / 10); // Arredondando os valores pra ficar bonito na tela
-    cJSON_AddNumberToObject(json_out, "velocidade", round(aceleracao_total * 10) / 10);
+    cJSON *json_MPU = cJSON_CreateObject();
+    cJSON_AddStringToObject(json_MPU, "status", "online"); // adcionando um campo no json
+    cJSON_AddNumberToObject(json_MPU, "direcao", round(direcao_graus * 10) / 10); // Arredondando os valores pra ficar bonito na tela
+    cJSON_AddNumberToObject(json_MPU, "velocidade", round(aceleracao_total * 10) / 10);
 
     // 5. REGRA DE ESTADO (Definindo o que é Anormal)
     if (aceleracao_total > 15.0) {
-        cJSON_AddStringToObject(json_out, "estado", "anormal");
+        cJSON_AddStringToObject(json_MPU, "estado", "anormal");
     } else {
-        cJSON_AddStringToObject(json_out, "estado", "normal");
+        cJSON_AddStringToObject(json_MPU, "estado", "normal");
     }
 
     // Libera a memória do JSON bruto
     cJSON_Delete(json_in);
 
-    return json_out;
+    return json_MPU;
 }
