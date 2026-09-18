@@ -136,3 +136,13 @@ def Display_ScrennOFF(device):
         draw.text((87, 187), "SIM", fill=COR_TEXTO, font=fonte_titulo, anchor="mm")
         draw.rounded_rectangle((175, 165, 290, 210), fill=COR_CAIXA, outline=None, radius=8)
         draw.text((232, 187), "NÃO", fill=COR_TEXTO, font=fonte_titulo, anchor="mm")
+
+
+def Display_ScrennON(device):
+    with canvas(device) as draw:
+        # BACKGROUND DE FUNDO
+        draw.rectangle((0, 0, 320, 240), fill=COR_FUNDO, outline=None)
+    
+        draw.rounded_rectangle((60, 95, 260, 145), fill=COR_CAIXA, outline=None, radius=10)
+        draw.text((160, 120), "LIGAR SISTEMA", fill=COR_TEXTO, font=fonte_titulo, anchor="mm")
+        
