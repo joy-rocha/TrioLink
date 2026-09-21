@@ -1,7 +1,5 @@
-# Display.py
-
 import os
-os.environ["SDL_VIDEODRIVER"] = "dummy"  # Permite renderizar em memória sem monitor HDMI
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 import sys
 import pygame
@@ -9,23 +7,15 @@ import json
 import subprocess
 import time
 
-# IMPORTAÇÃO DO EMULADOR LUMA PARA CRIAR O 'device'
-from luma.emulator.device import pygame as PygameDevice
+# Utiliza o dispositivo virtual 'dummy' do Luma para renderização direta em memória
+from luma.core.device import dummy
 
 # Tenta carregar a biblioteca de hardware da RPi 5
 try:
     import lgpio
-    import numpy as np
     IS_RPI = True
 except ImportError:
     IS_RPI = False
-
-try:
-    import evdev
-    from evdev import ecodes
-    HAS_EVDEV = True
-except ImportError:
-    HAS_EVDEV = False
 
 # Importa as funções de ecrã do seu ficheiro Screnns.py
 from Screnns import (
@@ -36,18 +26,19 @@ from Screnns import (
     Display_ScrennON
 )
 
-# ==============================================================================
-# INITIALIZAÇÃO DO DISPOSITIVO VIRTUAL (LUMA)
-# ==============================================================================
-# Cria o objeto 'device' que o Screnns.py exige para renderizar com canvas(device)
-device = PygameDevice(width=320, height=240)
+# Inicializa o dispositivo Luma em memória (320x240 pixels em RGB)
+device = dummy(width=320, height=240, mode="RGB")
+
+# Inicializa o Pygame apenas para escuta de eventos/cliques
+pygame.init()
+pygame.display.set_mode((320, 240))
 
 # ==============================================================================
 # CONFIGURAÇÃO DE HARDWARE (EXECUTADO APENAS NA RASPBERRY PI 5)
 # ==============================================================================
 if IS_RPI:
     PIN_RD, PIN_WR, PIN_RS, PIN_RST, PIN_CS = 17, 27, 24, 25, 8
-    D_PINS = [2, 3, 4, 5, 6, 7, 9, 10]  # D0 a D7 conforme a sua tabela
+    D_PINS = [2, 3, 4, 5, 6, 7, 9, 10]  # D0 a D7
 
     try:
         gpio_chip = lgpio.gpiochip_open(4)
@@ -58,8 +49,10 @@ if IS_RPI:
         lgpio.gpio_claim_output(gpio_chip, p, 1)
 
     def write_byte(val):
+        val = int(val)
         for i in range(8):
-            lgpio.gpio_write(gpio_chip, D_PINS[i], (val >> i) & 1)
+            bit_val = int((val >> i) & 1)
+            lgpio.gpio_write(gpio_chip, D_PINS[i], bit_val)
         lgpio.gpio_write(gpio_chip, PIN_WR, 0)
         lgpio.gpio_write(gpio_chip, PIN_WR, 1)
 
@@ -76,7 +69,7 @@ if IS_RPI:
         lgpio.gpio_write(gpio_chip, PIN_CS, 1)
 
     def inicializar_ili9341():
-        lgpio.gpio_write(gpio_chip, PIN_RD, 1) # Pino de leitura desativado (HIGH)
+        lgpio.gpio_write(gpio_chip, PIN_RD, 1)
         lgpio.gpio_write(gpio_chip, PIN_RST, 0)
         time.sleep(0.05)
         lgpio.gpio_write(gpio_chip, PIN_RST, 1)
@@ -96,23 +89,28 @@ if IS_RPI:
         
         write_cmd(0x29) # Display ON
 
-    def enviar_para_display_fisico(surface):
-        # Define janela total 320x240
+    def enviar_para_display_fisico(image):
+        if image is None:
+            return
+
+        # Define a área de escrita no ILI9341 (320x240)
         write_cmd(0x2A) # Colunas (0 a 319)
         write_data(0); write_data(0); write_data(1); write_data(63)
         write_cmd(0x2B) # Linhas (0 a 239)
         write_data(0); write_data(0); write_data(0); write_data(239)
         write_cmd(0x2C) # Escrita na memória RAM
 
-        pixels = pygame.surfarray.pixels3d(surface)
         lgpio.gpio_write(gpio_chip, PIN_RS, 1)
         lgpio.gpio_write(gpio_chip, PIN_CS, 0)
 
-        # Transfere matriz de píxeis para formato RGB565
+        # Transfere os pixels da imagem Pillow diretamente para RGB565
+        img_rgb = image.convert("RGB")
+        pixels = img_rgb.load()
+
         for y in range(240):
             for x in range(320):
                 r, g, b = pixels[x, y]
-                cor = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+                cor = int(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
                 write_byte((cor >> 8) & 0xFF)
                 write_byte(cor & 0xFF)
 
@@ -173,19 +171,16 @@ if __name__ == "__main__":
         elif tela_atual == "OFF": Display_ScrennOFF(device)
         elif tela_atual == "ON": Display_ScrennON(device)
 
-        # Se estiver na RPi 5, envia a imagem gerada para o ecrã físico
-        if IS_RPI:
-            surface = pygame.display.get_surface()
-            if surface:
-                enviar_para_display_fisico(surface)
+        # Envia a imagem renderizada (device.image) diretamente para o display físico na RPi 5
+        if IS_RPI and hasattr(device, 'image'):
+            enviar_para_display_fisico(device.image)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                win_w, win_h = pygame.display.get_surface().get_size()
-                x_mouse = int(event.pos[0] * (320.0 / win_w))
-                y_mouse = int(event.pos[1] * (240.0 / win_h))
+                x_mouse = int(event.pos[0])
+                y_mouse = int(event.pos[1])
                 Display_TrateClick(x_mouse, y_mouse)
 
-        time.sleep(0.03)  # Pausa para estabilidade e baixo consumo de CPU
+        time.sleep(0.03)
