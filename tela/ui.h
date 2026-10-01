@@ -1,5 +1,5 @@
-#ifndef UI_H
-#define UI_H
+#ifndef UI_SCREENS_H
+#define UI_SCREENS_H
 #include <stdbool.h>
 
 typedef enum { SCR_HOME, SCR_BMP, SCR_MPU, SCR_OFF } Screen;

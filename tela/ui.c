@@ -18,7 +18,6 @@ static const Rect R_NO       = { 168, 150, 124,  56 };
 #define C_CARD  rgb(38, 39, 50)
 #define C_TEXT  rgb(235, 235, 240)
 #define C_GREEN rgb(25, 232, 138)
-#define C_GLOW  rgb(20, 90, 60)
 #define C_RED   rgb(255, 51, 85)
 
 /* Quantos itens selecionáveis cada tela tem */
@@ -37,10 +36,14 @@ static int start_sel(Screen from, Screen to) {
     return 0;
 }
 
-/* Cartão arredondado; se selecionado, ganha uma borda verde */
+/* Seleção direta dentro do próprio retângulo, sem expansão ou animações */
 static void frame(const Rect *r, int rad, bool sel) {
-    if (sel) gfx_fill_rrect(r->x - 3, r->y - 3, r->w + 6, r->h + 6, rad + 3, C_GREEN);
-    gfx_fill_rrect(r->x, r->y, r->w, r->h, rad, C_CARD);
+    if (sel) {
+        gfx_fill_rrect(r->x, r->y, r->w, r->h, rad, C_GREEN);
+        gfx_fill_rrect(r->x + 3, r->y + 3, r->w - 6, r->h - 6, (rad > 3) ? rad - 3 : 1, C_CARD);
+    } else {
+        gfx_fill_rrect(r->x, r->y, r->w, r->h, rad, C_CARD);
+    }
 }
 
 static void header(const char *title, bool back) {
@@ -52,7 +55,6 @@ static void header(const char *title, bool back) {
 }
 
 static void led(int cx, int cy, bool online) {
-    if (online) gfx_fill_circle(cx, cy, 9, C_GLOW);
     gfx_fill_circle(cx, cy, 6, online ? C_GREEN : C_RED);
 }
 

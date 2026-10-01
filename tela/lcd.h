@@ -6,10 +6,10 @@
 #define LCD_W 320
 #define LCD_H 240
 
-/* Display ILI9341 (SPI) */
+/* Display ILI9341 (paralelo 8 bits) */
 int  lcd_init(void);
 void lcd_close(void);
-void lcd_flush(const uint16_t *fb);          /* envia o framebuffer RGB565 inteiro */
+void lcd_flush(const uint16_t *fb);          /* envia só a área alterada do framebuffer RGB565 */
 
 /* Touch XPT2046 (SPI) - chamar depois de lcd_init() */
 int  touch_init(void);
