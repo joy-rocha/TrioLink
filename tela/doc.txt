@@ -1,0 +1,125 @@
+# Como seu projeto funciona
+
+## A ideia geral: camadas
+
+O programa é organizado em camadas, cada uma usando só a de baixo:
+
+```
+main.c      → o "chefe": decide quando ler sensores, ler botões e redesenhar
+  ui.c      → as telas: o que desenhar e o que cada botão faz
+    gfx.c   → o "pincel": desenha retângulos, círculos e texto na memória
+      lcd.c → o "carteiro": manda a imagem pronta para o display físico
+buttons.c   → lê os dois botões em paralelo (thread)
+```
+
+Para desenhar, o programa não fala direto com o display. Ele pinta numa imagem na memória RAM, chamada **framebuffer**, e depois manda essa imagem inteira para o display de uma vez.
+
+## Conceitos básicos de C
+
+- **`.c` e `.h`:** o `.c` tem o código que faz as coisas. O `.h` (header) é só uma lista do que existe naquele módulo, para outros arquivos poderem usar. Quando você escreve `#include "lcd.h"`, está dizendo "quero poder chamar as funções do módulo lcd".
+- **Guarda de inclusão (`#ifndef ... #define ... #endif`):** impede que o mesmo header seja lido duas vezes. Foi aí que seu erro de compilação aconteceu: dois headers usavam o mesmo nome de guarda (`LCD_H`), então um foi ignorado.
+- **`static`:** "isso é privado deste arquivo". Funções e variáveis `static` não aparecem para os outros.
+- **Biblioteca:** código pronto de outra pessoa que você usa. O `Makefile` diz ao compilador quais bibliotecas ligar (`-llgpio`, `-lfreetype`, `-lm`).
+
+## Bibliotecas que você usa
+
+| Biblioteca | Para quê |
+|---|---|
+| **lgpio** | Ligar e desligar os pinos do Raspberry Pi (GPIO) por código |
+| **FreeType** | Ler a fonte `.ttf` e transformar letras em pixels |
+| **cJSON** | Ler dados em formato JSON (os dados dos sensores) |
+| **pthread** | Rodar duas coisas ao mesmo tempo (a leitura dos botões roda em paralelo) |
+| **math (`-lm`)** | Raiz quadrada e funções usadas para desenhar círculos |
+
+## Cada arquivo
+
+### `lcd.h` / `lcd.c`: o driver do display
+
+O display é um **ILI9341** de 320×240 pixels. Ele recebe dados por 8 fios em paralelo (D0 a D7), mais fios de controle:
+
+- **WR:** um pulso que diz "pode ler o que está nos fios de dados agora".
+- **DC:** diz se o byte enviado é um comando (0) ou um dado de pixel (1).
+- **CS:** diz "estou falando com você" (0) ou "terminei" (1).
+- **RST:** reinicia o chip.
+
+Enviar um byte é: colocar os 8 bits nos fios, baixar WR e subir WR de novo.
+
+`lcd_init()` reinicia o chip e manda uma sequência de comandos de configuração (modo paisagem, cores de 16 bits, etc.). Os números do tipo `0xEF, 0x03...` são os valores de calibração recomendados pelo fabricante.
+
+**Cores RGB565:** cada pixel usa 16 bits: 5 de vermelho, 6 de verde e 5 de azul. Por isso cada pixel vira 2 bytes.
+
+`lcd_flush()` manda a imagem para o display, e aqui está tudo o que mudei:
+
+1. **Antes:** a cada byte, o código dava 10 comandos pelo lgpio. Cada comando é lento porque passa pelo sistema operacional. Um quadro tinha cerca de 1,5 milhão de comandos, e isso causava o efeito gradual.
+2. **Retângulo sujo:** o driver guarda o quadro anterior (`prev`) e compara com o novo. Só reenvia o retângulo que mudou. Se só a seleção mudou, só aquela região é enviada.
+3. **Acesso direto ao hardware (`/dev/gpiomem0`):** o arquivo `/dev/gpiomem0` mostra os registradores do chip de GPIO do Pi 5 como se fossem memória comum. Escrever nessa memória muda os pinos diretamente, sem passar pelo lgpio. Isso é muito mais rápido.
+4. **Tabela `lut`:** uma tabela pronta que diz, para cada valor de byte (0 a 255), quais pinos de dados precisam ligar. Assim não há cálculo bit a bit em cada byte.
+5. **Verificação de segurança:** antes de usar o modo rápido, o código confere se os pinos já aparecem como saída no registrador. Se não aparecer, desiste e usa o modo lgpio mais lento (fallback).
+
+Também ficam no arquivo funções vazias do **touch** (`touch_init`, etc.), que existem só porque o `lcd.h` as declara. Elas ainda não fazem nada.
+
+### `gfx.h` / `gfx.c`: o pincel
+
+Mantém o framebuffer `fb[320*240]` na memória: cada posição é um pixel de 16 bits.
+
+- **`gfx_fill_rect`:** preenche um retângulo, pixel a pixel.
+- **`gfx_fill_rrect`:** retângulo de cantos arredondados. Calcula quanto cada linha precisa "entrar" nos cantos usando raiz quadrada.
+- **`gfx_fill_circle`:** círculo. Pinta todo pixel cuja distância ao centro é menor que o raio.
+- **`gfx_ring`:** anel, usado nos ícones de liga/desliga e átomo.
+- **`put_px`:** põe um pixel, ignorando o que estiver fora da tela, para não escrever fora da memória.
+- **`blend_px`:** mistura uma cor com a que já está no pixel, em proporção `a` de 0 a 255. Serve para deixar as bordas das letras suaves (antialiasing).
+- **`gfx_text`:** desenha texto. Usa o FreeType para converter cada letra do arquivo de fonte numa pequena imagem em tons de cinza, e depois mistura essa imagem no framebuffer com `blend_px`. A função `utf8_next` entende acentos e caracteres especiais (Ç, Ã, etc.), que em UTF-8 ocupam mais de um byte.
+- **`rgb(r, g, b)`:** converte uma cor normal (0 a 255 por canal) para o formato de 16 bits.
+
+### `ui.h` / `ui.c`: as telas
+
+O `ui.h` define os tipos do projeto:
+
+- **`Screen`:** qual tela está aberta (`SCR_HOME`, `SCR_BMP`, `SCR_MPU`, `SCR_OFF`).
+- **`UiAction`:** uma ação que o `ui` pede ao `main` (por enquanto, só `ACT_SHUTDOWN`).
+- **`SensorData`:** uma "ficha" com os dados de um sensor (online ou não, três valores e o estado).
+
+O `ui.c` faz três coisas:
+
+1. **`ui_render`** desenha a tela atual. Primeiro pinta o fundo, depois usa as funções do `gfx` para colocar cartões, textos, ícones e valores. A função `frame()` desenha o cartão e, se estiver selecionado, uma borda verde.
+2. **`ui_next`** é o botão preto: passa para o próximo item da tela (na tela inicial, dá a volta entre os 3 itens).
+3. **`ui_enter`** é o botão vermelho: confirma o item. Na tela inicial abre o BMP280, o MPU6050 ou a confirmação de desligar. Nas telas dos sensores, volta. Na confirmação, "SIM" pede o desligamento e "NÃO" volta.
+
+Nada aqui anima nada. As telas trocam porque o `main` chama `ui_render` de novo com outro `Screen`.
+
+### `buttons.h` / `buttons.c`: os botões
+
+Lê os dois botões (GPIO 6 e 7), ligados ao GND com pull-up interno (o pino fica em 1, e vai a 0 quando o botão é apertado).
+
+Uma **thread** (um pedaço do programa rodando em paralelo) verifica os botões a cada 2 ms. Ela faz **debounce**: um botão mecânico "treme" ao ser apertado e gera vários sinais, então o código só aceita a mudança depois de 30 ms estável.
+
+Cada aperto confirmado entra numa **fila**. O `main` chama `btn_poll()` para pegar um evento por vez. Assim nenhum aperto se perde enquanto a tela está sendo redesenhada. O `mutex` (`pthread_mutex_lock`) evita que a thread e o `main` mexam na fila ao mesmo tempo.
+
+### `main.c`: o chefe
+
+Na inicialização, `main()` carrega a fonte (`gfx_init`), liga o display (`lcd_init`) e liga os botões (`btn_init`). Depois entra no laço principal, que se repete até você apertar Ctrl+C:
+
+1. **A cada 1 segundo**, lê os sensores. Hoje são JSONs de teste fixos (`obter_json_bmp` e `obter_json_mpu`), que passam pelos seus decodificadores (`processar_dados_bmp` e `processar_dados_mpu`, nos arquivos `DecodeBMP.c` e `DecodeMPU.c`). Os valores só são guardados, e a tela só é marcada para redesenho, se algo mudou (`memcmp`).
+2. **Botões:** pega todos os apertos pendentes e passa para `ui_next` ou `ui_enter`.
+3. **Redesenho:** se algo mudou (`dirty = true`), chama `ui_render` para pintar o framebuffer e `lcd_flush` para mandar ao display.
+4. Dorme 10 ms e repete, para não gastar CPU à toa.
+
+Outras funções: `desligar_sistema` mostra "DESLIGANDO..." e executa `shutdown`; `--btn-debug` é um modo de teste que só mostra no terminal qual botão foi apertado.
+
+### `Makefile`
+
+É a receita de compilação: lista os arquivos `.c`, as flags (`-O2` otimiza, `-Wall -Wextra` mostram avisos) e as bibliotecas. `make` compila tudo e gera o programa `monitor`; `make clean` apaga o `monitor` para recompilar do zero.
+
+## Arquivos que não vi
+
+`cJSON.c`/`cJSON.h` são a biblioteca de JSON. `DecodeBMP.c`, `DecodeMPU.c` e `Decoders.h` são seus: pegam os dados brutos do sensor e geram um JSON processado com `pressao`, `temperatura`, `estado`, etc. Não os vi, então só sei o que o `main.c` espera deles.
+
+## O caminho completo
+
+```
+Botão apertado → thread (debounce) → fila → main → ui_next/ui_enter
+→ muda Screen/seleção → ui_render pinta no framebuffer (gfx)
+→ lcd_flush manda só o que mudou ao display (lcd)
+```
+
+Se quiser, posso mostrar como ler um sensor de verdade no lugar do JSON de teste, ou explicar com mais calma a parte do `lcd.c`, que é a mais difícil.
