@@ -21,7 +21,7 @@
 * DEFINES PUBLICOS
 **************************************/
 /// Tamanho maximo de um caminho de arquivo montado pela biblioteca
-#define dIIO_SYSFS_MAX_PATH         256 // [bytes]
+#define dIIO_SYSFS_MAX_PATH         512 // [bytes]
 
 /**************************************
 * TIPOS DE DADOS PUBLICOS
