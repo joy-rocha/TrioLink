@@ -1,0 +1,34 @@
+header:
+  version: 11
+
+machine: raspberrypi5
+distro: triolink
+target: triolink-image
+
+repos:
+  # sem url nem path: é este próprio repositório (meta-triolink)
+  meta-triolink:
+
+  poky:
+    url: https://git.yoctoproject.org/poky
+    branch: scarthgap
+    layers:
+      meta:
+      meta-poky:
+      meta-yocto-bsp:
+
+  meta-raspberrypi:
+    url: https://git.yoctoproject.org/meta-raspberrypi
+    branch: scarthgap
+
+  meta-openembedded:
+    url: https://github.com/openembedded/meta-openembedded.git
+    branch: scarthgap
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+
+local_conf_header:
+  triolink: |
+    CMDLINE_ROOT_PARTITION = "/dev/sda2"

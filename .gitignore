@@ -1,0 +1,17 @@
+# Comentários começam com cerquilha
+# Ignorar uma pasta inteira
+node_modules/
+build/
+dist/
+
+# Ignorar arquivos específicos por extensão
+*.log
+*.tmp
+
+# Ignorar arquivo de variáveis de ambiente ou credenciais
+.env
+config/secrets.yml
+
+# Ignorar arquivos do sistema operacional
+.DS_Store
+Thumbs.db

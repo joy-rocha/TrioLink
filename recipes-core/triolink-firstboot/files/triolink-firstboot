@@ -1,0 +1,154 @@
+#!/bin/sh
+# Assistente de primeiro boot do TrioLink.
+# Pede hostname, usuario e senha. Roda no tty1, chamado pelo triolink-session
+# (que por sua vez e iniciado pelo getty do inittab), entao stdin/stdout ja
+# sao o terminal. Mensagens sem acento de proposito: o console pode estar
+# sem locale UTF-8.
+
+MARKER="/etc/triolink-firstboot.done"
+LOG="/tmp/triolink-firstboot.log"
+
+log() {
+    echo "$(date '+%F %T') $*" >> "$LOG"
+}
+
+# Nao repetir a configuracao nos proximos boots.
+[ -e "$MARKER" ] && exit 0
+
+# O wizard so faz sentido com um terminal de verdade.
+if [ ! -t 0 ]; then
+    log "stdin nao e um terminal; abortando"
+    echo "ERRO: o assistente precisa rodar em um terminal."
+    exit 1
+fi
+
+# /etc precisa aceitar escrita (rootfs montado em rw).
+if ! touch /etc/.triolink-write-test 2>/dev/null; then
+    log "teste de escrita em /etc falhou"
+    echo "ERRO: /etc nao permite escrita (rootfs somente leitura?)."
+    exit 1
+fi
+rm -f /etc/.triolink-write-test
+
+# Restaura o eco do terminal em qualquer saida e impede Ctrl-C de pular o wizard.
+restore_tty() { stty echo 2>/dev/null; }
+trap restore_tty EXIT
+trap '' INT QUIT TSTP
+
+# ask "prompt" VAR -> le uma linha para VAR; se o terminal fechar, aborta
+# (evita loop infinito com EOF).
+ask() {
+    printf '%s' "$1"
+    IFS= read -r "$2" || { log "EOF ao ler $2"; exit 1; }
+}
+
+# ask_secret "prompt" VAR -> igual, mas sem eco.
+ask_secret() {
+    printf '%s' "$1"
+    stty -echo
+    IFS= read -r "$2" || { stty echo; log "EOF ao ler senha"; exit 1; }
+    stty echo
+    printf '\n'
+}
+
+echo
+echo "======================================"
+echo "       Configuracao inicial TrioLink"
+echo "======================================"
+echo
+
+# ---------- Hostname ----------
+while :; do
+    ask "Hostname desejado: " NEW_HOST
+    case "$NEW_HOST" in
+        ""|-*|*-|*[!a-zA-Z0-9-]*)
+            echo "Hostname invalido. Use letras, numeros e hifens, sem hifen no inicio ou no fim."
+            ;;
+        *)
+            if [ "${#NEW_HOST}" -gt 63 ]; then
+                echo "O hostname deve ter no maximo 63 caracteres."
+            else
+                break
+            fi
+            ;;
+    esac
+done
+
+# ---------- Usuario ----------
+while :; do
+    ask "Nome do usuario: " NEW_USER
+    case "$NEW_USER" in
+        ""|[0-9-]*|*[!a-z0-9_-]*)
+            echo "Nome invalido. Use letras minusculas, numeros, _ ou -; nao comece com numero ou hifen."
+            ;;
+        *)
+            if [ "${#NEW_USER}" -gt 32 ]; then
+                echo "O nome deve ter no maximo 32 caracteres."
+            elif id "$NEW_USER" >/dev/null 2>&1; then
+                echo "Esse usuario ja existe. Escolha outro nome."
+            else
+                break
+            fi
+            ;;
+    esac
+done
+
+# ---------- Senha ----------
+while :; do
+    ask_secret "Nova senha para $NEW_USER: " NEW_PASS
+    ask_secret "Confirme a senha: " NEW_PASS2
+
+    if [ -z "$NEW_PASS" ]; then
+        echo "A senha nao pode ficar vazia."
+    elif [ "$NEW_PASS" != "$NEW_PASS2" ]; then
+        echo "As senhas nao coincidem."
+    else
+        break
+    fi
+done
+unset NEW_PASS2
+
+# ---------- Aplicar ----------
+echo
+echo "Aplicando configuracao..."
+
+if ! useradd -m -s /bin/sh "$NEW_USER"; then
+    log "useradd falhou para $NEW_USER"
+    echo "ERRO: useradd falhou. Veja a mensagem acima."
+    exit 1
+fi
+
+if ! printf '%s:%s\n' "$NEW_USER" "$NEW_PASS" | chpasswd; then
+    log "chpasswd falhou para $NEW_USER"
+    echo "ERRO: nao foi possivel definir a senha. Removendo o usuario."
+    userdel -r "$NEW_USER" >/dev/null 2>&1
+    unset NEW_PASS
+    exit 1
+fi
+unset NEW_PASS
+
+# Acesso a I2C/GPIO etc. sem precisar de root (so entra nos grupos que existem).
+for g in i2c gpio spi dialout video input; do
+    if grep -q "^$g:" /etc/group; then
+        usermod -aG "$g" "$NEW_USER" >/dev/null 2>&1
+    fi
+done
+
+printf '%s\n' "$NEW_HOST" > /etc/hostname
+hostname "$NEW_HOST"
+sed -i '/^127\.0\.1\.1[[:space:]]/d' /etc/hosts 2>/dev/null
+echo "127.0.1.1 $NEW_HOST" >> /etc/hosts
+
+# So marca como concluido se tudo deu certo.
+touch "$MARKER"
+log "configuracao concluida: host=$NEW_HOST user=$NEW_USER"
+
+echo
+echo "Configuracao inicial concluida."
+echo "Hostname: $NEW_HOST"
+echo "Usuario:  $NEW_USER"
+echo "O acesso SSH ja pode ser feito com esse usuario."
+echo
+sleep 2
+
+exit 0

@@ -1,0 +1,26 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "brcm,bcm2835";
+
+    fragment@0 {
+        /*
+        i2c_arm corresponde ao i2c1
+        GPIO2 e GPIO 3 vao ser usados
+        */
+        target = <&i2c_arm>;
+        __overlay__ {
+            status = "okay";
+            /* isso daqui especifica para que o bmp280
+            ele vai estar sendo ligado no GND e no endereco I2C
+            corresponde ao 0x76
+            */
+            bmp280: bmp280@76 {
+                compatible = "bosch,bmp280";
+                reg = <0x76>;
+                status = "okay";
+            };
+        };
+    };
+};

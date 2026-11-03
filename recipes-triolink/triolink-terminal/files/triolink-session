@@ -1,0 +1,32 @@
+#!/bin/sh
+# Sessao do tty1: roda o wizard de primeiro boot (se ainda nao foi feito)
+# e depois abre o terminal TrioLink.
+#
+# Iniciado pelo inittab via:
+#   getty -n -l /usr/bin/triolink-session 38400 tty1
+# O getty prepara o tty1 (sessao, terminal de controle, stdin/stdout/stderr).
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export TERM=linux
+
+echo "0 2147483647" > /proc/sys/net/ipv4/ping_group_range 2>/dev/null
+dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk
+
+MARKER="/etc/triolink-firstboot.done"
+
+if [ ! -e "$MARKER" ]; then
+    # Se o wizard falhar, ainda abrimos o terminal para nao deixar o
+    # equipamento sem acesso; no proximo respawn o wizard roda de novo.
+    /usr/sbin/triolink-firstboot || {
+        echo
+        echo "O assistente de primeiro boot falhou (log em /tmp/triolink-firstboot.log)."
+        sleep 3
+    }
+fi
+
+# O terminal TrioLink abre $SHELL dentro do painel da esquerda.
+# Usando /bin/login, o painel mostra o prompt de login; ao sair (logout)
+# o terminal fecha e o init reinicia a sessao.
+export SHELL=/bin/login
+dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk
+exec /usr/bin/triolink-terminal
