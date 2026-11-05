@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+
 #define GPIOCHIP      0
 
 /* Mapeamento de Pinos Controle */

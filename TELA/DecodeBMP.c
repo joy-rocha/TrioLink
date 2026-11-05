@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "cJSON.h"
+#include <cjson/cJSON.h>
 #include "Decoders.h"
 
 // Função modular para processar APENAS o BMP280

@@ -6,14 +6,14 @@
 #include <signal.h>
 #include <time.h>
 #include <unistd.h>
-#include "cJSON.h"
+#include <cjson/cJSON.h>
 #include "Decoders.h"
 #include "lcd.h"
 #include "gfx.h"
 #include "ui.h"
 #include "buttons.h"
 
-#define FONT_PATH "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
+#define FONT_PATH "Ubuntu-Regular.ttf"
 
 static volatile sig_atomic_t running = 1;
 static void on_sig(int s) { (void)s; running = 0; }

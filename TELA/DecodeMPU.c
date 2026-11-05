@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>  // usa pra fazer os calculos pra convereter os numeros
-#include "cJSON.h"
+#include <cjson/cJSON.h>
 #include "Decoders.h"
 
 // Função modular para processar APENAS o MPU6050
