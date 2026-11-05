@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <math.h>  // usa pra fazer os calculos pra convereter os numeros
 #include "cJSON.h"
+#include "Decoders.h"
 
 // Função modular para processar APENAS o MPU6050
 cJSON* processar_dados_mpu(const char* json_amigo_mpu) { // formata o json bruto pra eu poder ler bonitinho
     // 1. Recebe e lê o JSON bruto
     cJSON *json_in = cJSON_Parse(json_amigo_mpu); 
+    
     if (json_in == NULL) {
         printf("Erro ao ler o JSON do MPU.\n");
         return NULL;
