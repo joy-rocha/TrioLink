@@ -15,3 +15,6 @@ config/secrets.yml
 # Ignorar arquivos do sistema operacional
 .DS_Store
 Thumbs.db
+
+#Ignorando o kas.local.yml
+kas.local.yml

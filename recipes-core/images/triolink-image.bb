@@ -50,3 +50,6 @@ IMAGE_INSTALL:append = " networkmanager networkmanager-nmtui networkmanager-nmcl
 
 #adicionando conexão wifi do assert automaticamente
 IMAGE_INSTALL:append = " triolink-wifi"
+
+#adiciona o sudo
+IMAGE_INSTALL:append = " sudo"

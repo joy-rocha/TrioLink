@@ -127,8 +127,12 @@ if ! printf '%s:%s\n' "$NEW_USER" "$NEW_PASS" | chpasswd; then
 fi
 unset NEW_PASS
 
-# Acesso a I2C/GPIO etc. sem precisar de root (so entra nos grupos que existem).
-for g in i2c gpio spi dialout video input; do
+# Acesso a I2C/GPIO etc. sem precisar de root (so entra nos grupos que existem). Além da questão do sudo entrar aqui também
+grep -q '^sudo:' /etc/group || groupadd sudo
+if ! grep -q '^%sudo' /etc/sudoers 2>/dev/null; then
+    echo '%sudo ALL=(ALL:ALL) ALL' >> /etc/sudoers
+fi
+for g in i2c gpio spi dialout video input sudo; do
     if grep -q "^$g:" /etc/group; then
         usermod -aG "$g" "$NEW_USER" >/dev/null 2>&1
     fi

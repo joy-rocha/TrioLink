@@ -1,0 +1,3 @@
+# Rede gerenciada pelo NetworkManager: aqui fica so o loopback.
+auto lo
+iface lo inet loopback

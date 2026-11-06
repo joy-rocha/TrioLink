@@ -6,8 +6,7 @@ SRC_URI = "file://triolink-firstboot"
 
 S = "${WORKDIR}"
 
-# useradd, usermod, userdel e chpasswd vem do shadow
-RDEPENDS:${PN} = "shadow"
+RDEPENDS:${PN} = "shadow sudo"
 
 do_install() {
     install -d ${D}${sbindir}
