@@ -23,6 +23,7 @@
 *   nesse momento (ver Main_CheckConnectionTransition()).
 * Changelog
 * @version <b>1.0.0 - 17/10/2026</b> \n Caio Oliveira \n Primeira versao.
+* @copyright https://github.com/joy-rocha/TrioLink
 **************************************/
 
 /**************************************
@@ -172,7 +173,7 @@ int main(int argc, char **argv)
                     if(MpuPayloads_BuildRaw(&mpuSample, json, sizeof(json), &jsonLen) == eMPU_PAYLOADS_RETURN_OK)
                     {
                         Mqtt_Wrapper_Publish(dNODE2_TOPIC_MPU_RAW, json, jsonLen, eMQTT_WRAPPER_QOS_0, false);
-                        printf("Publiquei em sensor/mpu ve la pfv");
+                        printf("[mpu] Publiquei em sensor/mpu ve la pfv");
                     }
 
                     BmpTracker_GetLatest(Main_GetTimestampMs(), &bmpData);
@@ -180,6 +181,7 @@ int main(int argc, char **argv)
                     if(MpuPayloads_BuildFusion(&mpuSample, &bmpData, json, sizeof(json), &jsonLen) == eMPU_PAYLOADS_RETURN_OK)
                     {
                         Mqtt_Wrapper_Publish(dNODE2_TOPIC_FUSION, json, jsonLen, eMQTT_WRAPPER_QOS_1, true);
+                        printf("[merge] Publiquei o merge de tudo ve la pfv");
                     }
 
                     printf("[no2] publicado (bmp.stale=%s)\n", (bmpData.stale == true) ? "true" : "false");

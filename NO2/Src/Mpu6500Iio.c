@@ -27,7 +27,7 @@
 *          software (Calibrate/Save/Load) e leitura com media
 *          (ReadAveragedSample). Removida a leitura de offset via sysfs,
 *          que nunca encontrava o arquivo no hardware real do projeto.
-* @copyright https://git.assert.ifpb.edu.br/Assert/<repositorio-do-projeto>
+* @copyright 
 **************************************/
 
 /**************************************
