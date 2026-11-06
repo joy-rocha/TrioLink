@@ -223,6 +223,64 @@ static void draw_art(void)
     wnoutrefresh(art_win);
 }
 
+/* ---- cores/atributos: traduz VTermColor para ncurses ---- */
+
+static short pair_table[9][9];   /* [fg+1][bg+1] -> numero do par (0 = nao criado) */
+static short next_pair = 1;
+
+/* Converte uma cor do libvterm para 0..7 (ou -1 = padrao). */
+static short map_color(const VTermColor *c, bool *bright)
+{
+    *bright = false;
+
+    if (VTERM_COLOR_IS_DEFAULT_FG(c) || VTERM_COLOR_IS_DEFAULT_BG(c))
+        return -1;
+
+    if (VTERM_COLOR_IS_INDEXED(c)) {
+        int i = c->indexed.idx;
+
+        if (i < 8)
+            return (short)i;
+        if (i < 16) {
+            *bright = true;
+            return (short)(i - 8);
+        }
+        if (i >= 232)                       /* escala de cinza */
+            return i < 244 ? 0 : 7;
+        i -= 16;                            /* cubo 6x6x6 */
+        {
+            int r = (i / 36) > 2, g = ((i / 6) % 6) > 2, b = (i % 6) > 2;
+            /* ncurses: 1=vermelho 2=verde 4=azul */
+            return (short)((b ? 4 : 0) | (g ? 2 : 0) | (r ? 1 : 0));
+        }
+    }
+
+    /* RGB */
+    return (short)((c->rgb.blue > 127 ? 4 : 0) |
+                   (c->rgb.green > 127 ? 2 : 0) |
+                   (c->rgb.red > 127 ? 1 : 0));
+}
+
+/* ncurses numera cores como BGR (1=vermelho,4=azul), o libvterm/ANSI como
+ * RGB (1=vermelho,4=azul tambem): os dois coincidem para 0..7. */
+
+static short get_pair(short fg, short bg)
+{
+    if (!has_colors() || (fg < 0 && bg < 0))
+        return 0;
+    if (fg > 7 || bg > 7)
+        return 0;
+
+    short *slot = &pair_table[fg + 1][bg + 1];
+    if (*slot == 0) {
+        if (next_pair >= COLOR_PAIRS)
+            return 0;
+        init_pair(next_pair, fg, bg);
+        *slot = next_pair++;
+    }
+    return *slot;
+}
+
 static void render_shell(void)
 {
     if (!screen || !shell_win)
@@ -239,8 +297,31 @@ static void render_shell(void)
                 continue;
 
             uint32_t cp = cell.chars[0];
-            if (!cp)
+
+            /* segunda metade de um caractere largo */
+            if (cp == (uint32_t)-1)
                 continue;
+
+            bool fg_bright, bg_bright;
+            short fg = map_color(&cell.fg, &fg_bright);
+            short bg = map_color(&cell.bg, &bg_bright);
+
+            attr_t attr = A_NORMAL;
+            if (cell.attrs.reverse)
+                attr |= A_REVERSE;
+            if (cell.attrs.bold || fg_bright)
+                attr |= A_BOLD;
+            if (cell.attrs.underline)
+                attr |= A_UNDERLINE;
+
+            /* celula vazia so precisa ser desenhada se tiver fundo/inverso */
+            if (!cp) {
+                if (!(attr & A_REVERSE) && bg < 0)
+                    continue;
+                cp = ' ';
+            }
+
+            wattrset(shell_win, attr | COLOR_PAIR(get_pair(fg, bg)));
 
             if (cp < 0x80) {
                 mvwaddch(shell_win, y, x, (chtype)cp);
@@ -263,7 +344,21 @@ static void render_shell(void)
 
                 mvwaddstr(shell_win, y, x, utf8);
             }
+
+            if (cell.width == 2)
+                x++;
         }
+    }
+
+    wattrset(shell_win, A_NORMAL);
+
+    /* posiciona o cursor onde o programa (shell/nano) o deixou */
+    {
+        VTermPos cur;
+        vterm_state_get_cursorpos(vterm_obtain_state(vt), &cur);
+        if (cur.row >= 0 && cur.row < shell_rows &&
+            cur.col >= 0 && cur.col < shell_cols)
+            wmove(shell_win, cur.row, cur.col);
     }
 
     wnoutrefresh(shell_win);
@@ -364,6 +459,8 @@ static int launch_shell(void)
         return -1;
 
     if (child_pid == 0) {
+        /* O libvterm emula um terminal estilo xterm, nao o console "linux". */
+        setenv("TERM", "xterm", 1);
         execl(shell, shell, (char *)NULL);
         perror("triolink-terminal: execl");
         _exit(127);
@@ -379,7 +476,7 @@ static int launch_shell(void)
 static void send_key(int key)
 {
     const char *seq = NULL;
-    char c;
+    char c = 0;
 
     switch (key) {
     case KEY_UP:        seq = "\033[A"; break;
@@ -390,7 +487,13 @@ static void send_key(int key)
     case KEY_END:       seq = "\033[F"; break;
     case KEY_DC:        seq = "\033[3~"; break;
     case KEY_BACKSPACE: c = 127; break;
-    case KEY_ENTER:     c = '\n'; break;
+    case KEY_IC:        seq = "\033[2~"; break;
+    case KEY_PPAGE:     seq = "\033[5~"; break;
+    case KEY_NPAGE:     seq = "\033[6~"; break;
+    case KEY_BTAB:      seq = "\033[Z"; break;
+    /* Enter e CR (13), como um teclado real; o ICRNL do pty converte para
+     * shells e o nano distingue de Ctrl+J (10). */
+    case KEY_ENTER:     c = '\r'; break;
     default:
         if (key >= 0 && key <= 255) {
             c = (char)key;
@@ -418,8 +521,13 @@ int main(void)
     prepare_art();
 
     initscr();
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+    }
     raw();
     noecho();
+    nonl();   /* Enter chega como '\r' (13) e nao como '\n' (10) */
     keypad(stdscr, TRUE);
     timeout(0);
     curs_set(1);
@@ -479,9 +587,9 @@ int main(void)
             if (n > 0) {
                 vterm_input_write(vt, (const char *)buffer, (size_t)n);
                 vterm_screen_flush_damage(screen);
-                render_shell();
                 if (art_win)
                     draw_art();
+                render_shell();   /* por ultimo: o cursor fica no shell */
                 doupdate();
             } else if (n == 0 ||
                        (errno != EAGAIN && errno != EWOULDBLOCK &&

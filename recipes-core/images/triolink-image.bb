@@ -1,22 +1,7 @@
-EXTRA_IMAGE_FEATURES ?= ""
+SUMMARY = "Imagem TrioLink"
+LICENSE = "MIT"
 
-USER_CLASSES ?= "buildstats"
-
-PATCHRESOLVE = "noop"
-
-BB_DISKMON_DIRS ??= "\
-    STOPTASKS,${TMPDIR},1G,100K \
-    STOPTASKS,${DL_DIR},1G,100K \
-    STOPTASKS,${SSTATE_DIR},1G,100K \
-    STOPTASKS,/tmp,100M,100K \
-    HALT,${TMPDIR},100M,1K \
-    HALT,${DL_DIR},100M,1K \
-    HALT,${SSTATE_DIR},100M,1K \
-    HALT,/tmp,10M,1K"
-
-PACKAGECONFIG:append:pn-qemu-system-native = " sdl"
-
-CONF_VERSION = "2"
+require recipes-core/images/core-image-base.bb
 
 #instala as dependencias aqui
 IMAGE_INSTALL:append = " mosquitto"
@@ -36,7 +21,7 @@ IMAGE_INSTALL:append = " nano"
 IMAGE_INSTALL:append = " iputils-ping curl"
 
 #gerenciamento de rede e conexão wi-fi
-IMAGE_INSTALL:append = " connman connman-client wpa-supplicant iw"
+#IMAGE_INSTALL:append = " connman connman-client wpa-supplicant iw"
 # Servidor SSH
 IMAGE_FEATURES:append = " ssh-server-openssh"
 
@@ -50,15 +35,18 @@ IMAGE_INSTALL:append = " triolink-terminal"
 IMAGE_INSTALL:append = " sysvinit"
 IMAGE_INSTALL:append = " initscripts"
 
-# Criar usuario e definir senha
-INHERIT += "extrausers"
+#colocando o teclado em português
+IMAGE_INSTALL:append = " kbd kbd-keymaps"
+
+#colocando .local no rasp
+IMAGE_INSTALL:append = " avahi-daemon"
+
+#adicionando para mostrar o ip 
+IMAGE_INSTALL:append = " iproute2 net-tools"
 
 
-#é necessário para fazer o bitbake gerar na image
-#tanto a conexão da chave SSH como a password
-EXTRA_USERS_PARAMS = " \
-    useradd -m -s /bin/sh triolink; \
-    usermod -p '${TRIOLINK_PASSWD}' triolink; \
-"
+#adicionando para editar dentro da rasp para acessar o wifi
+IMAGE_INSTALL:append = " networkmanager networkmanager-nmtui networkmanager-nmcli wpa-supplicant iw dbus"
 
-
+#adicionando conexão wifi do assert automaticamente
+IMAGE_INSTALL:append = " triolink-wifi"

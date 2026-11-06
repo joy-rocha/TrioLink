@@ -9,8 +9,19 @@
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export TERM=linux
 
-echo "0 2147483647" > /proc/sys/net/ipv4/ping_group_range 2>/dev/null
+# UTF-8: sem isso o ncurses (C locale) nao desenha caracteres de moldura do
+# nmtui/menus e eles aparecem como quadrados.
+export LANG=en_US.UTF-8
+
+# Teclado ABNT2 (pt-BR) e modo UTF-8 no console. Silencioso se kbd nao existir.
+command -v loadkeys >/dev/null 2>&1 && loadkeys br-abnt2 >/dev/null 2>&1
+command -v kbd_mode >/dev/null 2>&1 && kbd_mode -u </dev/tty1 >/dev/null 2>&1
+
+# Menos mensagens do kernel no console (ex.: undervoltage).
 dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk
+
+# ping sem ser root.
+echo "0 2147483647" > /proc/sys/net/ipv4/ping_group_range 2>/dev/null
 
 MARKER="/etc/triolink-firstboot.done"
 
@@ -28,5 +39,4 @@ fi
 # Usando /bin/login, o painel mostra o prompt de login; ao sair (logout)
 # o terminal fecha e o init reinicia a sessao.
 export SHELL=/bin/login
-dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk
 exec /usr/bin/triolink-terminal
