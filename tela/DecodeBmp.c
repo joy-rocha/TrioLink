@@ -1,7 +1,7 @@
 /**************************************
 * @file DecodeBmp.c
-* @addtogroup DecodeBmp
-* @brief Modulo para processamento e decodificacao de dados do sensor BMP.
+* @addtogroup Decoders
+* @brief Decodificador de dados do sensor BMP280.
 * @author Assert
 * @details
 * \n <b>Ferramentas:</b>
@@ -17,17 +17,16 @@
 * INCLUDES
 ***************************************/
 #include "Decoders.h"
-#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 /**************************************
 * DEFINES LOCAIS (fixos, apenas auxiliar para calculos)
 ***************************************/
-/// Divisor para conversao de Pascal para Hectopascal
-#define dDECODE_BMP_PA_TO_HPA_DIVISOR       100.0
+/// Fator de conversao de Pa para hPa
+#define dDECODE_BMP_PA_TO_HPA    100.0
 /// Limite de temperatura para estado anormal
-#define dDECODE_BMP_TEMP_ANORMAL_THRESHOLD 57.0
+#define dDECODE_BMP_TEMP_LIMIT   57.0
 
 /**************************************
 * CONSTANTES
@@ -46,43 +45,37 @@
 ***************************************/
 
 /**************************************
-/** @brief Processa e estrutura os dados brutos do sensor BMP280.
-* @param rawJson: string contendo o JSON bruto retornado pelo sensor BMP.
-* @retval Ponteiro para objeto cJSON com os dados processados ou NULL em caso de erro.
+* @brief Processa e decodifica o JSON de dados do sensor BMP280.
+* @param jsonRawBmp: string JSON bruta do sensor.
+* @retval Ponteiro para objeto cJSON com os dados refinados, ou NULL em caso de erro.
 ***************************************/
-cJSON *DecodeBmp_ProcessData(const char *rawJson)
+cJSON *DecodeBmp_ProcessData(const char *jsonRawBmp)
 {
-    cJSON *jsonInput = cJSON_Parse(rawJson);
-    if(jsonInput == NULL)
+    cJSON *jsonIn = cJSON_Parse(jsonRawBmp);
+    if(jsonIn == NULL)
     {
         printf("Erro ao ler o JSON do BMP.\n");
         return NULL;
     }
 
-    cJSON *tempItem = cJSON_GetObjectItemCaseSensitive(jsonInput, "temperature");
-    cJSON *pressItem = cJSON_GetObjectItemCaseSensitive(jsonInput, "pressure");
-    cJSON *altItem = cJSON_GetObjectItemCaseSensitive(jsonInput, "altitude");
+    cJSON *tempItem = cJSON_GetObjectItemCaseSensitive(jsonIn, "temperature");
+    cJSON *pressItem = cJSON_GetObjectItemCaseSensitive(jsonIn, "pressure");
+    cJSON *altItem = cJSON_GetObjectItemCaseSensitive(jsonIn, "altitude");
 
     if((tempItem == NULL) || (pressItem == NULL) || (altItem == NULL))
     {
         printf("Faltam dados essenciais no JSON do BMP.\n");
-        cJSON_Delete(jsonInput);
+        cJSON_Delete(jsonIn);
         return NULL;
     }
 
     cJSON *jsonBmp = cJSON_CreateObject();
-    if(jsonBmp == NULL)
-    {
-        cJSON_Delete(jsonInput);
-        return NULL;
-    }
-
     cJSON_AddStringToObject(jsonBmp, "status", "online");
     cJSON_AddNumberToObject(jsonBmp, "temperatura", tempItem->valuedouble);
-    cJSON_AddNumberToObject(jsonBmp, "pressao", pressItem->valuedouble / dDECODE_BMP_PA_TO_HPA_DIVISOR);
+    cJSON_AddNumberToObject(jsonBmp, "pressao", pressItem->valuedouble / dDECODE_BMP_PA_TO_HPA);
     cJSON_AddNumberToObject(jsonBmp, "altitude", altItem->valuedouble);
 
-    if(tempItem->valuedouble >= dDECODE_BMP_TEMP_ANORMAL_THRESHOLD)
+    if(tempItem->valuedouble >= dDECODE_BMP_TEMP_LIMIT)
     {
         cJSON_AddStringToObject(jsonBmp, "estado", "anormal");
     }
@@ -91,8 +84,7 @@ cJSON *DecodeBmp_ProcessData(const char *rawJson)
         cJSON_AddStringToObject(jsonBmp, "estado", "normal");
     }
 
-    cJSON_Delete(jsonInput);
-
+    cJSON_Delete(jsonIn);
     return jsonBmp;
 }
 

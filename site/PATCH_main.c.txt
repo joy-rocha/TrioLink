@@ -1,0 +1,41 @@
+=== 1) Adicione esta função no main.c (depois de atualizar_mpu) ===
+
+#define WEB_JSON      "/tmp/triolink.json"
+#define WEB_JSON_TMP  "/tmp/triolink.json.tmp"
+
+/* Grava os dados para o site; escreve em arquivo temporário e renomeia (atômico) */
+static void escrever_json_web(const SensorData *b, const SensorData *m) {
+    FILE *f = fopen(WEB_JSON_TMP, "w");
+    if (!f) return;
+    fprintf(f,
+        "{\"bmp\":{\"online\":%s,\"pressao\":%.2f,\"temperatura\":%.2f,\"altitude\":%.2f,\"estado\":\"%s\"},"
+        "\"mpu\":{\"online\":%s,\"direcao\":%.2f,\"velocidade\":%.2f,\"estado\":\"%s\"}}\n",
+        b->online ? "true" : "false", b->v1, b->v2, b->v3, b->estado,
+        m->online ? "true" : "false", m->v1, m->v2, m->estado);
+    fclose(f);
+    rename(WEB_JSON_TMP, WEB_JSON);
+}
+
+
+=== 2) No loop principal, dentro do bloco "atualiza sensores a cada 1 s",
+       chame a função ANTES do if que compara com memcmp ===
+
+        if (now - last_update >= 1000) {
+            SensorData nb, nm;
+            atualizar_bmp(&nb);
+            atualizar_mpu(&nm);
+            escrever_json_web(&nb, &nm);          /* <-- NOVO */
+            if (memcmp(&nb, &bmp, sizeof bmp) != 0 || ...
+
+
+=== 3) Rodar ===
+
+# terminal 1: programa em C (display + gravação do JSON)
+./monitor
+
+# terminal 2: site
+cd triolink && python3 server.py
+# abra no navegador:  http://<ip-da-rpi>:8080
+
+# Para o botão "SIM" do site desligar a Pi, o usuário que roda o server.py
+# precisa de permissão no sudoers (NOPASSWD para /sbin/shutdown), igual ao main.c.

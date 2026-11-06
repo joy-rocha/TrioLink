@@ -77,7 +77,7 @@ static int Gfx_Utf8NextChar(const char **stringPtr);
 ***************************************/
 
 /**************************************
-/** @brief Converte componentes R, G, B de 8 bits para o formato RGB565 de 16 bits.
+* @brief Converte componentes R, G, B de 8 bits para o formato RGB565 de 16 bits.
 * @param red: intensidade da cor vermelha (0-255).
 * @param green: intensidade da cor verde (0-255).
 * @param blue: intensidade da cor azul (0-255).
@@ -89,7 +89,7 @@ uint16_t Gfx_Rgb(uint8_t red, uint8_t green, uint8_t blue)
 }
 
 /**************************************
-/** @brief Inicializa a biblioteca FreeType e carrega a fonte especificada.
+* @brief Inicializa a biblioteca FreeType e carrega a fonte especificada.
 * @param fontPath: caminho do ficheiro de fonte TrueType (.ttf).
 * @retval 0 em caso de sucesso, -1 em caso de erro.
 ***************************************/
@@ -110,7 +110,7 @@ int Gfx_Init(const char *fontPath)
 }
 
 /**************************************
-/** @brief Preenche todo o framebuffer com uma cor solida.
+* @brief Preenche todo o framebuffer com uma cor solida.
 * @param color: cor de preenchimento em formato RGB565.
 * @retval Nenhum.
 ***************************************/
@@ -123,7 +123,7 @@ void Gfx_Clear(uint16_t color)
 }
 
 /**************************************
-/** @brief Desenha um retangulo preenchido.
+* @brief Desenha um retangulo preenchido.
 * @param posX: coordenada X inicial.
 * @param posY: coordenada Y inicial.
 * @param width: largura do retangulo.
@@ -143,7 +143,7 @@ void Gfx_FillRect(int posX, int posY, int width, int height, uint16_t color)
 }
 
 /**************************************
-/** @brief Desenha um retangulo preenchido com cantos arredondados.
+* @brief Desenha um retangulo preenchido com cantos arredondados.
 * @param posX: coordenada X inicial.
 * @param posY: coordenada Y inicial.
 * @param width: largura do retangulo.
@@ -191,7 +191,7 @@ void Gfx_FillRRect(int posX, int posY, int width, int height, int radius, uint16
 }
 
 /**************************************
-/** @brief Desenha um circulo preenchido.
+* @brief Desenha um circulo preenchido.
 * @param centerX: coordenada X do centro.
 * @param centerY: coordenada Y do centro.
 * @param radius: raio do circulo.
@@ -213,7 +213,7 @@ void Gfx_FillCircle(int centerX, int centerY, int radius, uint16_t color)
 }
 
 /**************************************
-/** @brief Desenha um anel/elipse com espessura especificada.
+* @brief Desenha um anel/elipse com espessura especificada.
 * @param centerX: coordenada X do centro.
 * @param centerY: coordenada Y do centro.
 * @param radiusX: raio horizontal.
@@ -240,7 +240,7 @@ void Gfx_Ring(int centerX, int centerY, int radiusX, int radiusY, int thickness,
 }
 
 /**************************************
-/** @brief Calcula a largura total em pixels de uma string UTF-8.
+* @brief Calcula a largura total em pixels de uma string UTF-8.
 * @param utf8Text: ponteiro para a string codificada em UTF-8.
 * @param pixelSize: altura da fonte em pixels.
 * @retval Largura da string em pixels.
@@ -266,7 +266,7 @@ int Gfx_TextWidth(const char *utf8Text, int pixelSize)
 }
 
 /**************************************
-/** @brief Renderiza uma string UTF-8 na posicao especificada.
+* @brief Renderiza uma string UTF-8 na posicao especificada.
 * @param posX: coordenada X de ancora.
 * @param posY: coordenada Y do centro vertical do texto.
 * @param pixelSize: altura da fonte em pixels.
@@ -326,7 +326,7 @@ void Gfx_Text(int posX, int posY, int pixelSize, const char *utf8Text, uint16_t 
 ***************************************/
 
 /**************************************
-/** @brief Atualiza o tamanho da fonte no FreeType apenas se for diferente do atual.
+* @brief Atualiza o tamanho da fonte no FreeType apenas se for diferente do atual.
 * @param pixelSize: tamanho da fonte em pixels.
 * @retval Nenhum.
 ***************************************/
@@ -340,7 +340,7 @@ static void Gfx_SetPixelSize(int pixelSize)
 }
 
 /**************************************
-/** @brief Escreve um pixel no framebuffer sem mistura alpha.
+* @brief Escreve um pixel no framebuffer sem mistura alpha.
 * @param posX: coordenada X do pixel.
 * @param posY: coordenada Y do pixel.
 * @param color: cor em formato RGB565.
@@ -355,7 +355,7 @@ static inline void Gfx_PutPixel(int posX, int posY, uint16_t color)
 }
 
 /**************************************
-/** @brief Mistura a cor do pixel com a cor existente usando canal Alpha.
+* @brief Mistura a cor do pixel com a cor existente usando canal Alpha.
 * @param posX: coordenada X do pixel.
 * @param posY: coordenada Y do pixel.
 * @param color: cor fonte em formato RGB565.
@@ -387,7 +387,7 @@ static inline void Gfx_BlendPixel(int posX, int posY, uint16_t color, int alpha)
 }
 
 /**************************************
-/** @brief Decodifica o proximo caractere UTF-8 de uma string.
+* @brief Decodifica o proximo caractere UTF-8 de uma string.
 * @param stringPtr: ponteiro para o ponteiro da string.
 * @retval Codepoint do caractere lido.
 ***************************************/

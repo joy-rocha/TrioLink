@@ -1,7 +1,7 @@
 /**************************************
 * @file Buttons.h
 * @addtogroup Buttons
-* @brief Modulo de leitura e debounce de botoes via GPIO.
+* @brief Driver de leitura de botoes com debounce e fila de eventos.
 * @{
 ***************************************/
 
@@ -12,6 +12,7 @@
 * INCLUDES NECESSARIOS
 ***************************************/
 #include <stdbool.h>
+#include <stdint.h>
 
 /**************************************
 * CONFIGURACOES
@@ -20,15 +21,15 @@
 /**************************************
 * DEFINES PUBLICOS
 ***************************************/
-/// Pino BCM do botao de navegacao
-#define dBUTTONS_PIN_BTN_NAV   6
-/// Pino BCM do botao enter
-#define dBUTTONS_PIN_BTN_ENTER 7
+/// Pino BCM do botao de navegacao (preto - pino fisico 31)
+#define dBUTTONS_PIN_NAV   6
+/// Pino BCM do botao de confirmacao (vermelho - pino fisico 26)
+#define dBUTTONS_PIN_ENTER 7
 
 /**************************************
 * TIPOS DE DADOS PUBLICOS
 ***************************************/
-/// Eventos gerados pelo acionamento dos botoes
+/// Eventos dos botoes
 typedef enum
 {
     eBTN_EVENT_NONE = 0,
@@ -40,21 +41,21 @@ typedef enum
 * PROTOTIPOS PUBLICOS
 ***************************************/
 /**************************************
-/** @brief Inicializa o driver de botoes e a thread de leitura.
+* @brief Inicializa a leitura dos botoes e a thread de debounce.
 * @param Nenhum.
 * @retval 0 em caso de sucesso, -1 em caso de erro.
 ***************************************/
 int Buttons_Init(void);
 
 /**************************************
-/** @brief Retorna um evento pendente da fila de botoes.
+* @brief Retorna um evento pendente da fila de botoes.
 * @param Nenhum.
-* @retval Evento do botao (eBTN_EVENT_NONE se nao houver evento).
+* @retval Evento do botao (eBTN_EVENT_NONE se a fila estiver vazia).
 ***************************************/
 btnEvent_t Buttons_Poll(void);
 
 /**************************************
-/** @brief Encerra a thread de leitura e libera os recursos GPIO.
+* @brief Finaliza a thread dos botoes e libera a interface GPIO.
 * @param Nenhum.
 * @retval Nenhum.
 ***************************************/

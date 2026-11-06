@@ -11,9 +11,8 @@
 /**************************************
 * INCLUDES NECESSARIOS
 ***************************************/
-#include "Lcd.h"
-#include <stdbool.h>
 #include <stdint.h>
+#include "Lcd.h"
 
 /**************************************
 * CONFIGURACOES
@@ -26,7 +25,7 @@
 /**************************************
 * TIPOS DE DADOS PUBLICOS
 ***************************************/
-/// Alinhamento do texto horizontal
+/// Alinhamento horizontal de texto
 typedef enum
 {
     eGFX_ALIGN_LEFT = 0,
@@ -37,14 +36,14 @@ typedef enum
 /**************************************
 * VARIAVEIS PUBLICAS
 ***************************************/
-/// Buffer global de imagem RGB565
+/// Buffer global de imagem RGB565 compartilhado com a exibicao LCD
 extern uint16_t frameBuffer[dLCD_W * dLCD_H];
 
 /**************************************
 * PROTOTIPOS PUBLICOS
 ***************************************/
 /**************************************
-/** @brief Converte componentes R, G, B de 8 bits para o formato RGB565 de 16 bits.
+* @brief Converte componentes R, G, B de 8 bits para o formato RGB565 de 16 bits.
 * @param red: intensidade da cor vermelha (0-255).
 * @param green: intensidade da cor verde (0-255).
 * @param blue: intensidade da cor azul (0-255).
@@ -53,21 +52,21 @@ extern uint16_t frameBuffer[dLCD_W * dLCD_H];
 uint16_t Gfx_Rgb(uint8_t red, uint8_t green, uint8_t blue);
 
 /**************************************
-/** @brief Inicializa a biblioteca FreeType e carrega a fonte especificada.
+* @brief Inicializa a biblioteca FreeType e carrega a fonte especificada.
 * @param fontPath: caminho do ficheiro de fonte TrueType (.ttf).
 * @retval 0 em caso de sucesso, -1 em caso de erro.
 ***************************************/
 int Gfx_Init(const char *fontPath);
 
 /**************************************
-/** @brief Preenche todo o framebuffer com uma cor solida.
+* @brief Preenche todo o framebuffer com uma cor solida.
 * @param color: cor de preenchimento em formato RGB565.
 * @retval Nenhum.
 ***************************************/
 void Gfx_Clear(uint16_t color);
 
 /**************************************
-/** @brief Desenha um retangulo preenchido.
+* @brief Desenha um retangulo preenchido.
 * @param posX: coordenada X inicial.
 * @param posY: coordenada Y inicial.
 * @param width: largura do retangulo.
@@ -78,7 +77,7 @@ void Gfx_Clear(uint16_t color);
 void Gfx_FillRect(int posX, int posY, int width, int height, uint16_t color);
 
 /**************************************
-/** @brief Desenha um retangulo preenchido com cantos arredondados.
+* @brief Desenha um retangulo preenchido com cantos arredondados.
 * @param posX: coordenada X inicial.
 * @param posY: coordenada Y inicial.
 * @param width: largura do retangulo.
@@ -90,7 +89,7 @@ void Gfx_FillRect(int posX, int posY, int width, int height, uint16_t color);
 void Gfx_FillRRect(int posX, int posY, int width, int height, int radius, uint16_t color);
 
 /**************************************
-/** @brief Desenha um circulo preenchido.
+* @brief Desenha um circulo preenchido.
 * @param centerX: coordenada X do centro.
 * @param centerY: coordenada Y do centro.
 * @param radius: raio do circulo.
@@ -100,7 +99,7 @@ void Gfx_FillRRect(int posX, int posY, int width, int height, int radius, uint16
 void Gfx_FillCircle(int centerX, int centerY, int radius, uint16_t color);
 
 /**************************************
-/** @brief Desenha um anel/elipse com espessura especificada.
+* @brief Desenha um anel/elipse com espessura especificada.
 * @param centerX: coordenada X do centro.
 * @param centerY: coordenada Y do centro.
 * @param radiusX: raio horizontal.
@@ -112,7 +111,7 @@ void Gfx_FillCircle(int centerX, int centerY, int radius, uint16_t color);
 void Gfx_Ring(int centerX, int centerY, int radiusX, int radiusY, int thickness, uint16_t color);
 
 /**************************************
-/** @brief Renderiza uma string UTF-8 na posicao especificada.
+* @brief Renderiza uma string UTF-8 na posicao especificada.
 * @param posX: coordenada X de ancora.
 * @param posY: coordenada Y do centro vertical do texto.
 * @param pixelSize: altura da fonte em pixels.
@@ -124,7 +123,7 @@ void Gfx_Ring(int centerX, int centerY, int radiusX, int radiusY, int thickness,
 void Gfx_Text(int posX, int posY, int pixelSize, const char *utf8Text, uint16_t color, gfxAlign_t align);
 
 /**************************************
-/** @brief Calcula a largura total em pixels de uma string UTF-8.
+* @brief Calcula a largura total em pixels de uma string UTF-8.
 * @param utf8Text: ponteiro para a string codificada em UTF-8.
 * @param pixelSize: altura da fonte em pixels.
 * @retval Largura da string em pixels.

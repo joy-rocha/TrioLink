@@ -1,7 +1,7 @@
 /**************************************
 * @file Lcd.h
 * @addtogroup Lcd
-* @brief Driver do ecra LCD ILI9341 e controlador de toque.
+* @brief Driver paralelo de 8 bits para o display ILI9341 e suporte a touch.
 * @{
 ***************************************/
 
@@ -34,48 +34,48 @@
 * PROTOTIPOS PUBLICOS
 ***************************************/
 /**************************************
-/** @brief Inicializa o display ILI9341 e tenta ativar o modo rapido.
+* @brief Inicializa o controlador do display ILI9341.
 * @param Nenhum.
 * @retval 0 em caso de sucesso, -1 em caso de erro.
 ***************************************/
 int Lcd_Init(void);
 
 /**************************************
-/** @brief Encerra a interface do display e desmapeia a memoria RIO.
+* @brief Libera os recursos do display e encerra a conexao GPIO/mmap.
 * @param Nenhum.
 * @retval Nenhum.
 ***************************************/
 void Lcd_Close(void);
 
 /**************************************
-/** @brief Envia apenas a regiao alterada do framebuffer para o display.
-* @param frameBuffer: ponteiro para o buffer de imagem RGB565.
+* @brief Envia apenas a regiao alterada do framebuffer para o display.
+* @param frameBufferPtr: ponteiro para o buffer de imagem RGB565.
 * @retval Nenhum.
 ***************************************/
-void Lcd_Flush(const uint16_t *frameBuffer);
+void Lcd_Flush(const uint16_t *frameBufferPtr);
 
 /**************************************
-/** @brief Inicializa o controlador de toque XPT2046.
+* @brief Inicializa a interface de touch XPT2046.
 * @param Nenhum.
-* @retval 0 em caso de sucesso.
+* @retval 0 em caso de sucesso, -1 em caso de erro.
 ***************************************/
 int Touch_Init(void);
 
 /**************************************
-/** @brief Realiza a leitura dos valores brutos do sensor de toque.
-* @param rawX: ponteiro para armazenar a leitura bruta X.
-* @param rawY: ponteiro para armazenar a leitura bruta Y.
+* @brief Le as coordenadas brutas do controlador de touch.
+* @param rawX: ponteiro para armazenar o valor X bruto.
+* @param rawY: ponteiro para armazenar o valor Y bruto.
 * @retval true se houver toque, false caso contrario.
 ***************************************/
 bool Touch_ReadRaw(int *rawX, int *rawY);
 
 /**************************************
-/** @brief Realiza a leitura das coordenadas convertidas em pixels.
-* @param pixelX: ponteiro para armazenar a coordenada X em pixels.
-* @param pixelY: ponteiro para armazenar a coordenada Y em pixels.
+* @brief Le as coordenadas convertidas em pixels do touch.
+* @param posX: ponteiro para armazenar a coordenada X em pixels.
+* @param posY: ponteiro para armazenar a coordenada Y em pixels.
 * @retval true se houver toque, false caso contrario.
 ***************************************/
-bool Touch_Read(int *pixelX, int *pixelY);
+bool Touch_Read(int *posX, int *posY);
 
 #endif /* _LCD_H_ */
 /** @} DOXYGEN GROUP TAG END OF FILE */
