@@ -2,7 +2,7 @@
 CC      = gcc
 CFLAGS  = -O2 -Wall -Wextra -pthread $(shell pkg-config --cflags freetype2)
 LIBS    = -llgpio -lfreetype -lcjson -lm -pthread
-SRC     = main.c ui.c gfx.c lcd.c buttons.c DecodeBMP.c DecodeMPU.c
+SRC     = Main.c Ui.c Gfx.c Lcd.c Buttons.c DecodeBmp.c DecodeMpu.c
 
 monitor: $(SRC) $(wildcard *.h)
 > $(CC) $(CFLAGS) -o $@ $(SRC) $(LIBS)
