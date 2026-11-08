@@ -1,0 +1,4 @@
+Depois de clonar o repositório, abre o terminal e digita:
+kas checkout meta-triolink/kas.yml
+Ele vai instalar todas as dependências do Triolink para que seja gravado a imagem
+**OBS.: O comando do Kas usa-se fora da pasta do layer**
