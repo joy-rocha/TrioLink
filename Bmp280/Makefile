@@ -12,7 +12,7 @@
 # ==============================================================
 
 # Nome do executavel final
-TARGET := no_bmp280
+TARGET := bmp280
 
 # Compilador
 CC := gcc
