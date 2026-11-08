@@ -2,7 +2,7 @@
 # Makefile - No BMP280 (TrioLink, Desafio 1)
 # ==============================================================
 # Compila BspSensorBmp280 + SensorBmp280 + SimpleMovingAvg + JsonBmp280 +
-# PublisherBmp280 + main.c num unico executavel.
+# MqttWrapper + main.c num unico executavel.
 #
 # Uso:
 #   make          -> compila (so recompila o que mudou)
@@ -38,7 +38,6 @@ SRCS := main.c \
         SensorBmp280.c \
         SimpleMovingAvg.c \
         JsonBmp280.c \
-        PublisherBmp280.c \
         MqttWrapper.c
 
 # Gera a lista de .o a partir da lista de .c (main.c -> main.o, etc)
