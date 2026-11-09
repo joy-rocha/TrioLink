@@ -9,12 +9,6 @@ SRC_URI += " \
     file://triolink-mpu6500-overlay.dts \
 "
 
-# fragmentos de configuração do kernel
-KCONFIG_FRAGMENTS += " \
-    triolink-bmp280.cfg \
-    triolink-mpu6500.cfg \
-"
-
 do_configure:append() {
     install -m 0644 ${WORKDIR}/triolink-bmp280-overlay.dts \
         ${S}/arch/arm64/boot/dts/overlays/

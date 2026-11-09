@@ -53,3 +53,6 @@ IMAGE_INSTALL:append = " triolink-wifi"
 
 #adiciona o sudo
 IMAGE_INSTALL:append = " sudo"
+
+#adicionando I2C automatico
+IMAGE_INSTALL:append = " triolink-sensors"

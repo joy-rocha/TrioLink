@@ -1,0 +1,73 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          triolink-sensors
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Registra os sensores I2C (BMP280 / MPU6500)
+### END INIT INFO
+
+# Faz no boot o mesmo que foi feito a mao:
+#   echo bmp280 0x76 > /sys/bus/i2c/devices/i2c-1/new_device
+# O kernel cria o dispositivo, carrega o driver e aparece em
+# /sys/bus/iio/devices/iio:deviceN.
+
+SYS="${SYS:-/sys}"
+BUS=1
+BUSDIR="$SYS/bus/i2c/devices/i2c-$BUS"
+
+# nome do dispositivo (como no kernel):endereco em hexadecimal, sem 0x
+SENSORS="bmp280:76 mpu6500:68"
+
+add_sensor() {
+    name="$1"
+    addr="$2"
+
+    # ja existe (por exemplo, criado por um overlay): nada a fazer
+    [ -e "$SYS/bus/i2c/devices/$BUS-00$addr" ] && return 0
+
+    echo "$name 0x$addr" > "$BUSDIR/new_device" 2>/dev/null \
+        || echo "triolink-sensors: falha ao registrar $name em 0x$addr" >&2
+}
+
+case "$1" in
+    start)
+        # espera o barramento aparecer (ate 10 s)
+        i=0
+        while [ ! -d "$BUSDIR" ] && [ "$i" -lt 10 ]; do
+            sleep 1
+            i=$((i + 1))
+        done
+
+        if [ ! -d "$BUSDIR" ]; then
+            echo "triolink-sensors: i2c-$BUS nao encontrado" >&2
+            exit 1
+        fi
+
+        modprobe bmp280-i2c 2>/dev/null
+        modprobe inv-mpu6050-i2c 2>/dev/null
+
+        for s in $SENSORS; do
+            add_sensor "${s%%:*}" "${s##*:}"
+        done
+        ;;
+    stop)
+        for s in $SENSORS; do
+            addr="${s##*:}"
+            if [ -e "$SYS/bus/i2c/devices/$BUS-00$addr" ]; then
+                echo "0x$addr" > "$BUSDIR/delete_device" 2>/dev/null
+            fi
+        done
+        ;;
+    restart)
+        "$0" stop
+        "$0" start
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0
