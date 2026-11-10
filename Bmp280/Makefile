@@ -4,15 +4,26 @@
 # Compila BspSensorBmp280 + SensorBmp280 + SimpleMovingAvg + JsonBmp280 +
 # MqttWrapper + main.c num unico executavel.
 #
+# Estrutura esperada do projeto:
+#   Makefile
+#   Inc/    -> todos os .h
+#   Src/    -> todos os .c
+#   build/  -> criada pelo make: guarda os .o e .d (pode apagar a vontade)
+#
 # Uso:
 #   make          -> compila (so recompila o que mudou)
 #   make run      -> compila e executa
-#   make clean    -> apaga os .o e o executavel
+#   make clean    -> apaga a pasta build e o executavel
 #   make rebuild  -> clean + compila tudo de novo do zero
 # ==============================================================
 
 # Nome do executavel final
 TARGET := bmp280
+
+# Pastas do projeto
+SRC_DIR := Src
+INC_DIR := Inc
+BUILD_DIR := build
 
 # Compilador
 CC := gcc
@@ -20,9 +31,9 @@ CC := gcc
 # Flags de compilacao:
 #   -std=gnu11    : padrao C11 com extensoes GNU (precisa de clock_gettime etc)
 #   -Wall -Wextra : liga os avisos do compilador (ajuda a achar bug cedo)
-#   -I.           : procura os .h na pasta atual
+#   -I$(INC_DIR)  : procura os .h na pasta Inc
 #   -MMD -MP      : gera arquivos .d de dependencia (explicado mais abaixo)
-CFLAGS := -std=gnu11 -Wall -Wextra -I. -MMD -MP
+CFLAGS := -std=gnu11 -Wall -Wextra -I$(INC_DIR) -MMD -MP
 
 # Flags de linkagem (bibliotecas externas):
 #   -lm         : biblioteca matematica (powf em SensorBmp280.c)
@@ -32,7 +43,7 @@ CFLAGS := -std=gnu11 -Wall -Wextra -I. -MMD -MP
 #                 propria libmosquitto, via mosquitto_loop_start)
 LDFLAGS := -lm -lcjson -lmosquitto -lpthread
 
-# Lista de todos os arquivos .c do projeto
+# Lista de todos os arquivos .c do projeto (nomes, sem a pasta)
 SRCS := main.c \
         BspSensorBmp280.c \
         SensorBmp280.c \
@@ -40,8 +51,8 @@ SRCS := main.c \
         JsonBmp280.c \
         MqttWrapper.c
 
-# Gera a lista de .o a partir da lista de .c (main.c -> main.o, etc)
-OBJS := $(SRCS:.c=.o)
+# Gera a lista de .o dentro da pasta build (main.c -> build/main.o, etc)
+OBJS := $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))
 
 # Gera a lista de .d (dependencias) a partir da lista de .o
 DEPS := $(OBJS:.o=.d)
@@ -52,14 +63,19 @@ DEPS := $(OBJS:.o=.d)
 all: $(TARGET)
 
 # Linkagem: junta todos os .o num executavel.
-# $@ = nome do alvo (no_bmp280); $^ = todos os pre-requisitos (todos os .o)
+# $@ = nome do alvo (bmp280); $^ = todos os pre-requisitos (todos os .o)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# Regra generica: como gerar um .o a partir do .c de mesmo nome.
+# Regra generica: como gerar build/X.o a partir de Src/X.c.
 # $< = o primeiro pre-requisito (o .c); -c = compila sem linkar.
-%.o: %.c
+# "| $(BUILD_DIR)" = a pasta precisa existir, mas nao forca recompilacao.
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Cria a pasta build se ela ainda nao existir
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 # Inclui os .d gerados (se existirem), para o make saber que, por exemplo,
 # SensorBmp280.o tambem depende de SensorBmp280.h e AssertTypes.h -- editar
@@ -75,6 +91,6 @@ run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(OBJS) $(DEPS) $(TARGET)
+	rm -rf $(BUILD_DIR) $(TARGET)
 
 rebuild: clean all
