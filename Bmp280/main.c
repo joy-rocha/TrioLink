@@ -33,7 +33,7 @@
 
 /// Endereco (IP ou hostname) do broker MQTT.
 /// TODO: trocar pelo endereco combinado com o grupo (onde o Mosquitto roda).
-#define dMAIN_MQTT_BROKER_HOST "localhost"
+#define dMAIN_MQTT_BROKER_HOST "joyce@rpi5-joyce.local"
 /// Porta do broker (1883 = sem TLS; 8883 = com TLS)
 #define dMAIN_MQTT_BROKER_PORT 1883
 /// Identificador deste cliente perante o broker (deve ser unico na rede)

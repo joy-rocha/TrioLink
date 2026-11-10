@@ -407,6 +407,11 @@ Após a criação dessa recipe ela precisa ser adicionada manualmente dentro do 
 
 ## Como colocar a imagem dentro do armazenamento para transferir para a rasp:
 
+Antes você deve compilar a imagem:
+```bash
+bitbake triolink-image
+```
+
 O programa a ser utilizado oficialmente seria o `bmaptool` que serve para "flashar images", logo o comando para baixar ele:
 ```bash
 sudo apt install bmap-tools
@@ -432,7 +437,6 @@ bunzip2 -k /tmp/triolink.wic.bz2
 
 # Enviar para unidade de armazenamento, (lembre de substituir /dev/sdX pela unidade de armazenamento correspondente):
 sudo bmaptool copy --nobmap /tmp/triolink.wic /dev/sdX
-
 ```
 
 ## Diagnóstico de erro de transferência de arquivos
@@ -452,3 +456,66 @@ alterar para:
 ```python
 EXTRA_IMAGE_FEATURES ?= ""
 ```
+
+## Trocando o systemd para o sysvinit
+
+Alguns erros estavam ocorrendo ao tentar algumas receitas do bitbake, então, decidi trocar o sistema incializado da raspberrypi de systemctl para sysvit dentro da pasta do local.conf da build
+```python
+INIT_MANAGER = "sysvinit" 
+```
+
+## Conexão da rasp com a rede
+Dentre os pacotes escolhidos para a image de rede foi o nmtui e ainda precisaria baixar o restante dos pacotes, sendo assim, tá aqui a dependência da Image:
+```python
+#adicionando para editar dentro da rasp para acessar o wifi
+IMAGE_INSTALL:append = " networkmanager networkmanager-nmtui networkmanager-nmcli wpa-supplicant iw dbus"
+```
+O connman também pode ser ser usado:
+```python
+#gerenciamento de rede e conexão wi-fi
+IMAGE_INSTALL:append = " connman connman-client wpa-supplicant iw"
+```
+Para fazer a conexão com a rasp remotamente:
+```bash
+ssh nome_do_usuario@endereco_ip_da_rasp
+
+#Ex.:
+ssh luis@192.168.10.88
+
+#Se for enviar um arquivo, usa-se isso:
+scp -r endereco_absoluto_onde_esta_o_arquivo/nome_do_arquivo nome_do_usuario_rasp@endereco_ip: endereco_onde_vai_guardar_na_rasp
+
+#Ex.:
+scp -r ~/Downloads/Bmp280 luis@192.168.10.88: ~/
+```
+
+### Usando o Nmtui
+Digitando nmtui no terminal ele vai abrir uma tela, explicitamente diz como fazer a conexão. Para saber o IP da rasp você digita Ifconfig e visualiza o IP, cuidado para não confundir com o endereço IP de loopback 127.0.0.0.256
+
+### Boot - Chave nova
+
+A cada novo boot uma nova chave ssh é gerada, logo, para fazer com que o dispositivo acesse remotamente a rasp mesmo após a _regravação_ da imagem, é necessário fazer o dispositivo esquecer a chave ssh referente a esse endereço ip, então, executa-se essa sequência de comandos no terminal:
+
+```bash
+ssh-keygen -R endereco_ip_da_rasp
+#Ex.:
+ssh luis@192.168.10.88
+```
+
+
+## Como usar funções de rotina
+
+```shell
+#registrando o programa no terminal
+sudo triolink-routine add /home/luis/meu_programa
+#mostra a quantidade de arquivos/diretórios que vão ser inicializados
+triolink-routine list
+#remove uma rotina
+sudo triolink-routine remove meu_programa
+```
+
+O sysvinit não reinicia um programa que cai. Se a rotina travar ou terminar, ela fica parada até o próximo boot. Para reiniciar sozinha, o programa precisa ter o seu próprio laço, ou pode ir no inittab com respawn.
+
+Uma rotina que precisa de rede (por exemplo, publicar no MQTT) pode iniciar antes de o Wi-Fi conectar, e precisa esperar a conexão por conta própria.
+
+O trecho que executa como outro usuário usa o su do BusyBox, e eu não consegui testá-lo fora de ambiente simulado. Se der problema, as rotinas cujo dono é root funcionam normalmente.
