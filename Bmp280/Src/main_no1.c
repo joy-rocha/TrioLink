@@ -1,12 +1,13 @@
 /**************************************
 * @file Main.c
-* @brief Programa de teste da MqttWrapper: le o sensor BMP280, calcula a
-         media movel, monta o JSON e publica a cada 2 segundos. Imprime
-         tudo que receber.
+* @brief Programa do No 1: le o sensor BMP280, calcula a media movel, monta
+         o JSON e publica em sensor/bmp/raw a cada 2 segundos. Publica o
+         proprio status em status/rasp1 e imprime os status dos outros nos.
 * @details
 * \n <b>Observacoes:</b>
 * - Conexao COM TLS e USUARIO/SENHA configurados.
 * - Encerrar com Ctrl+C (desconexao limpa, o Last Will NAO e disparado).
+* - O payload de status segue o schema: {"timestamp":<ms>,"Status":"ONLINE"}.
 * - Compilar com: -lmosquitto (ou a lib usada na MqttWrapper) -lcjson -lm
 **************************************/
 
@@ -17,26 +18,31 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define dTEST_BROKER_HOST            "localhost"
 #define dTEST_BROKER_PORT            8883
-#define dTEST_CLIENT_ID              "no3"
-#define dNODE3_MQTT_USERNAME         "no3"      
-#define dNODE3_CA_FILE_PATH          "/etc/mosquitto/certs/ca.crt" 
+#define dTEST_CLIENT_ID              "no1"
+#define dNODE1_MQTT_USERNAME         "no1"
+#define dNODE1_MQTT_PASSWORD         "triolink"   // CONFIRMAR a senha do no1
+#define dNODE1_CA_FILE_PATH          "/etc/mosquitto/certs/ca.crt" 
 
-/// Topico onde vamos escutar (voce liberou no ACL)
-#define dTEST_TOPIC_SUB              "fusion/bmp_mpu"
-#define dTEST_TOPIC_SUB_Sensor_Status   "status/#" //rasp1 = bmp, rasp2 = mpu
+/// Topicos onde vamos escutar (status dos outros nos, conforme a tabela de topicos)
+#define dTEST_TOPIC_SUB_STATUS_RASP2 "status/rasp2"
+#define dTEST_TOPIC_SUB_STATUS_RASP3 "status/rasp3"
 
-/// Topico onde vamos publicar (no3 tem permissao de write neste topico)
-#define dTEST_TOPIC_PUB              "fusion/final"
-/// Topico do schema do BMP280 (confira se o ACL deste usuario permite write)
-#define dTEST_TOPIC_PUB_BMP          "sensor/bmp/raw"
-#define dTEST_TOPIC_STATUS           "status/rasp3"
+/// Topico onde vamos publicar os dados do BMP280 (QoS 0, sem retain)
+#define dTEST_TOPIC_PUB              "sensor/bmp/raw"
+/// Topico de status deste no (QoS 1, retain)
+#define dTEST_TOPIC_STATUS           "status/rasp1"
 #define dTEST_PUBLISH_PERIOD_SECONDS 2    
 #define dTEST_CONNECT_TIMEOUT_MS     5000 
 #define dTEST_CONNECT_POLL_MS        100  
+/// Tamanho do buffer do JSON de status
+#define dTEST_STATUS_BUFFER_SIZE     64
+#define dTEST_MS_PER_SECOND          1000
+#define dTEST_NS_PER_MS              1000000
 
 static struct
 {
@@ -47,11 +53,14 @@ static void Main_SignalHandler(int signalNumber);
 static void Main_OnMessageReceived(const char *topic, const char *payload, u32 payloadLen);
 static bool Main_WaitForConnection(void);
 static bool Main_PublishSensorData(u32 counter);
+static bool Main_BuildStatusPayload(char *outBuffer, u16 outBufferSize, const char *status);
+static bool Main_PublishStatus(const char *status);
 
 int main(void)
 {
     int returnCode = 0;
     mqttWrapperConfig_t config;
+    char willPayload[dTEST_STATUS_BUFFER_SIZE];
     u32 counter = 0;
 
     memset(&config, 0, sizeof(config));
@@ -63,13 +72,16 @@ int main(void)
     config.brokerPort = dTEST_BROKER_PORT;
     strcpy(config.clientId, dTEST_CLIENT_ID);
     
-    strcpy(config.username, dNODE3_MQTT_USERNAME);
-    strcpy(config.password, "triolink");
+    strcpy(config.username, dNODE1_MQTT_USERNAME);
+    strcpy(config.password, dNODE1_MQTT_PASSWORD);
     
     config.useTls = true;
-    strncpy(config.caFilePath, dNODE3_CA_FILE_PATH, sizeof(config.caFilePath) - 1);
+    strncpy(config.caFilePath, dNODE1_CA_FILE_PATH, sizeof(config.caFilePath) - 1);
+
+    // Last Will em JSON, conforme o schema (timestamp = instante da conexao)
+    Main_BuildStatusPayload(willPayload, (u16)sizeof(willPayload), "OFFLINE");
     strcpy(config.willTopic, dTEST_TOPIC_STATUS);
-    strcpy(config.willPayload, "OFFLINE");
+    strcpy(config.willPayload, willPayload);
     config.willQos = eMQTT_WRAPPER_QOS_1;
     config.willRetain = true;
     config.messageCallback = Main_OnMessageReceived;
@@ -98,14 +110,19 @@ int main(void)
         }
         else
         {
-            printf("[main] Conectado. Assinando %s\n", dTEST_TOPIC_SUB);
+            printf("[main] Conectado. Assinando %s e %s\n", dTEST_TOPIC_SUB_STATUS_RASP2, dTEST_TOPIC_SUB_STATUS_RASP3);
 
-            if(Mqtt_Wrapper_Subscribe(dTEST_TOPIC_SUB, eMQTT_WRAPPER_QOS_0) != eMQTT_WRAPPER_RETURN_OK)
+            if(Mqtt_Wrapper_Subscribe(dTEST_TOPIC_SUB_STATUS_RASP2, eMQTT_WRAPPER_QOS_1) != eMQTT_WRAPPER_RETURN_OK)
             {
-                fprintf(stderr, "[main] AVISO: falha ao assinar %s\n", dTEST_TOPIC_SUB);
+                fprintf(stderr, "[main] AVISO: falha ao assinar %s\n", dTEST_TOPIC_SUB_STATUS_RASP2);
             }
 
-            Mqtt_Wrapper_Publish(dTEST_TOPIC_STATUS, "ONLINE", 6, eMQTT_WRAPPER_QOS_1, true);
+            if(Mqtt_Wrapper_Subscribe(dTEST_TOPIC_SUB_STATUS_RASP3, eMQTT_WRAPPER_QOS_1) != eMQTT_WRAPPER_RETURN_OK)
+            {
+                fprintf(stderr, "[main] AVISO: falha ao assinar %s\n", dTEST_TOPIC_SUB_STATUS_RASP3);
+            }
+
+            Main_PublishStatus("ONLINE");
 
             while(mainTest.stopRequested == 0)
             {
@@ -115,7 +132,7 @@ int main(void)
             }
 
             printf("\n[main] Encerrando...\n");
-            Mqtt_Wrapper_Publish(dTEST_TOPIC_STATUS, "OFFLINE", 7, eMQTT_WRAPPER_QOS_1, true);
+            Main_PublishStatus("OFFLINE");
             Mqtt_Wrapper_Deinit();
         }
     }
@@ -149,6 +166,55 @@ static bool Main_WaitForConnection(void)
         }
     }
     return isConnected;
+}
+
+/**************************************
+* @brief Monta o JSON de status: {"timestamp":<ms>,"Status":"<status>"}.
+* @param outBuffer: buffer que recebe o texto (terminado em nulo).
+* @param outBufferSize: tamanho do buffer, em bytes.
+* @param status: "ONLINE" ou "OFFLINE".
+* @retval true se o JSON foi montado; false caso contrario.
+***************************************/
+static bool Main_BuildStatusPayload(char *outBuffer, u16 outBufferSize, const char *status)
+{
+    bool isValid = false;
+    struct timespec now;
+    s64 timestampMs = 0;
+    int written = 0;
+
+    if(clock_gettime(CLOCK_REALTIME, &now) == 0)
+    {
+        timestampMs = ((s64)now.tv_sec * dTEST_MS_PER_SECOND) + ((s64)now.tv_nsec / dTEST_NS_PER_MS);
+        written = snprintf(outBuffer, outBufferSize, "{\"timestamp\":%lld,\"Status\":\"%s\"}", (long long)timestampMs, status);
+
+        if((written > 0) && (written < outBufferSize))
+        {
+            isValid = true;
+        }
+    }
+
+    return isValid;
+}
+
+/**************************************
+* @brief Publica o status deste no em status/rasp1 (QoS 1, retain).
+* @param status: "ONLINE" ou "OFFLINE".
+* @retval true se publicou com sucesso; false caso contrario.
+***************************************/
+static bool Main_PublishStatus(const char *status)
+{
+    bool isPublished = false;
+    char payload[dTEST_STATUS_BUFFER_SIZE];
+
+    if(Main_BuildStatusPayload(payload, (u16)sizeof(payload), status) == true)
+    {
+        if(Mqtt_Wrapper_Publish(dTEST_TOPIC_STATUS, payload, (u32)strlen(payload), eMQTT_WRAPPER_QOS_1, true) == eMQTT_WRAPPER_RETURN_OK)
+        {
+            isPublished = true;
+        }
+    }
+
+    return isPublished;
 }
 
 /**************************************
@@ -186,9 +252,9 @@ static bool Main_PublishSensorData(u32 counter)
         {
             printf("[main] FALHA ao montar o JSON #%u\n", counter);
         }
-        else if(Mqtt_Wrapper_Publish(dTEST_TOPIC_PUB_BMP, json, (u32)jsonLen, eMQTT_WRAPPER_QOS_0, false) == eMQTT_WRAPPER_RETURN_OK)
+        else if(Mqtt_Wrapper_Publish(dTEST_TOPIC_PUB, json, (u32)jsonLen, eMQTT_WRAPPER_QOS_0, false) == eMQTT_WRAPPER_RETURN_OK)
         {
-            printf("[main] Publicado em %s #%u (conectado=%s): %s\n", dTEST_TOPIC_PUB_BMP, counter, (isConnected == true) ? "sim" : "nao", json);
+            printf("[main] Publicado em %s #%u (conectado=%s): %s\n", dTEST_TOPIC_PUB, counter, (isConnected == true) ? "sim" : "nao", json);
             isPublished = true;
         }
         else
