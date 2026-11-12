@@ -44,7 +44,7 @@ CFLAGS := -std=gnu11 -Wall -Wextra -I$(INC_DIR) -MMD -MP
 LDFLAGS := -lm -lcjson -lmosquitto -lpthread
 
 # Lista de todos os arquivos .c do projeto (nomes, sem a pasta)
-SRCS := main.c \
+SRCS := main_no1.c \
         BspSensorBmp280.c \
         SensorBmp280.c \
         SimpleMovingAvg.c \
