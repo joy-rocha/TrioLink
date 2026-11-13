@@ -1,0 +1,92 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          triolink-routines
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Inicia as rotinas registradas com triolink-routine
+### END INIT INFO
+
+# Cada entrada de /etc/triolink/routines.d e um link para um programa ou
+# script. No boot, cada um e iniciado em segundo plano (sem travar o boot),
+# com a saida gravada em /var/log/triolink-routines/<nome>.log.
+# O programa roda com o usuario dono do arquivo (root se o dono for root).
+
+ROUTINES_DIR="${ROUTINES_DIR:-/etc/triolink/routines.d}"
+LOG_DIR="${LOG_DIR:-/var/log/triolink-routines}"
+RUN_DIR="${RUN_DIR:-/var/run/triolink-routines}"
+
+is_running() {
+    [ -f "$RUN_DIR/$1.pid" ] && kill -0 "$(cat "$RUN_DIR/$1.pid")" 2>/dev/null
+}
+
+start_one() {
+    name="$1"
+    link="$ROUTINES_DIR/$name"
+    target=$(readlink -f "$link")
+
+    if [ ! -f "$target" ] || [ ! -x "$target" ]; then
+        echo "triolink-routines: $name: '$target' nao existe ou nao e executavel" >&2
+        return 1
+    fi
+
+    if is_running "$name"; then
+        echo "triolink-routines: $name ja esta rodando"
+        return 0
+    fi
+
+    mkdir -p "$LOG_DIR" "$RUN_DIR"
+    owner=$(stat -c %U "$target" 2>/dev/null)
+    dir=$(dirname "$target")
+
+    if [ -z "$owner" ] || [ "$owner" = "root" ]; then
+        ( cd "$dir" && exec "$target" ) </dev/null >> "$LOG_DIR/$name.log" 2>&1 &
+    else
+        su -s /bin/sh -c "cd '$dir' && exec '$target'" "$owner" \
+            </dev/null >> "$LOG_DIR/$name.log" 2>&1 &
+    fi
+    echo $! > "$RUN_DIR/$name.pid"
+    echo "triolink-routines: $name iniciada"
+}
+
+stop_one() {
+    name="$1"
+    if is_running "$name"; then
+        kill "$(cat "$RUN_DIR/$name.pid")" 2>/dev/null
+        echo "triolink-routines: $name parada"
+    fi
+    rm -f "$RUN_DIR/$name.pid"
+}
+
+status_one() {
+    if is_running "$1"; then echo "$1: rodando (pid $(cat "$RUN_DIR/$1.pid"))"
+    else echo "$1: parada"; fi
+}
+
+each_routine() {   # $1 = funcao; $2 = nome opcional (so uma rotina)
+    if [ -n "$2" ]; then
+        "$1" "$2"
+        return
+    fi
+    [ -d "$ROUTINES_DIR" ] || return 0
+    for link in "$ROUTINES_DIR"/*; do
+        [ -e "$link" ] || [ -L "$link" ] || continue
+        "$1" "$(basename "$link")"
+    done
+}
+
+case "$1" in
+    start)   each_routine start_one "$2" ;;
+    stop)    each_routine stop_one "$2" ;;
+    restart) "$0" stop "$2"; "$0" start "$2" ;;
+    status)
+        each_routine status_one "$2" 2>/dev/null
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart} [nome]"
+        exit 1
+        ;;
+esac
+
+exit 0

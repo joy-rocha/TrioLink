@@ -7,7 +7,7 @@ require recipes-core/images/core-image-base.bb
 IMAGE_INSTALL:append = " mosquitto"
 IMAGE_INSTALL:append = " i2c-tools"
 IMAGE_INSTALL:append = " cmake"
-IMAGE_INSTALL:append = " lgpio"
+IMAGE_INSTALL:append = " lgpio-dev"
 IMAGE_INSTALL:append = " freetype"
 IMAGE_INSTALL:append = " mosquitto-clients"
 IMAGE_INSTALL:append = " dtc"
@@ -56,3 +56,6 @@ IMAGE_INSTALL:append = " sudo"
 
 #adicionando I2C automatico
 IMAGE_INSTALL:append = " triolink-sensors"
+
+#adicionando lgpiod e o gtk
+IMAGE_INSTALL:append = " gtk4 gtk4-dev pkgconfig libgpiod libgpiod-dev libgpiod-tools"

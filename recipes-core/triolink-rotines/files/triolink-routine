@@ -1,0 +1,107 @@
+#!/bin/sh
+# Registra programas/scripts para iniciarem em todo boot da Raspberry.
+#
+#   sudo triolink-routine add /caminho/do/programa [nome]
+#   sudo triolink-routine remove nome
+#        triolink-routine list
+#   sudo triolink-routine start|stop|restart nome
+#        triolink-routine log nome
+
+ROUTINES_DIR="${ROUTINES_DIR:-/etc/triolink/routines.d}"
+LOG_DIR="${LOG_DIR:-/var/log/triolink-routines}"
+INIT="${INIT:-/etc/init.d/triolink-routines}"
+
+die() { echo "triolink-routine: $*" >&2; exit 1; }
+
+need_root() {
+    [ "$(id -u)" = "0" ] || die "precisa de root. Use: sudo triolink-routine $1"
+}
+
+valid_name() {
+    case "$1" in
+        ""|*[!A-Za-z0-9._-]*|.*) return 1 ;;
+    esac
+    return 0
+}
+
+usage() {
+    cat <<USO
+triolink-routine: programas que iniciam automaticamente em todo boot.
+
+Uso:
+  sudo triolink-routine add CAMINHO [NOME]   registra o programa para todo boot
+  sudo triolink-routine remove NOME          remove a rotina
+       triolink-routine list                 lista as rotinas e se estao rodando
+  sudo triolink-routine start NOME           inicia agora
+  sudo triolink-routine stop NOME            para agora
+  sudo triolink-routine restart NOME         reinicia agora
+       triolink-routine log NOME             mostra o final do log
+       triolink-routine help                 mostra esta ajuda
+
+Exemplo:
+  chmod +x /home/luis/meu_programa
+  sudo triolink-routine add /home/luis/meu_programa leitura
+  triolink-routine list
+
+O programa precisa ser executavel e roda com o usuario dono do arquivo.
+A saida fica em /var/log/triolink-routines/NOME.log.
+USO
+}
+
+case "$1" in
+    add)
+        need_root "add $2 $3"
+        [ -n "$2" ] || die "informe o caminho. Ex.: sudo triolink-routine add /home/luis/meu_programa"
+        target=$(readlink -f "$2" 2>/dev/null)
+        [ -f "$target" ] || die "'$2' nao existe ou nao e um arquivo"
+        [ -x "$target" ] || die "'$target' nao e executavel. Rode: chmod +x $target"
+        case "$target" in
+            *"'"*) die "o caminho nao pode conter aspas simples" ;;
+        esac
+        name="${3:-$(basename "$target")}"
+        valid_name "$name" || die "nome invalido '$name' (use letras, numeros, . _ -)"
+        mkdir -p "$ROUTINES_DIR"
+        ln -sf "$target" "$ROUTINES_DIR/$name"
+        echo "Rotina '$name' registrada -> $target"
+        echo "Ela sera iniciada em todo boot. Para iniciar agora: sudo triolink-routine start $name"
+        ;;
+    remove)
+        need_root "remove $2"
+        valid_name "$2" || die "informe o nome da rotina"
+        [ -L "$ROUTINES_DIR/$2" ] || die "rotina '$2' nao encontrada"
+        "$INIT" stop "$2" >/dev/null 2>&1
+        rm -f "$ROUTINES_DIR/$2"
+        echo "Rotina '$2' removida."
+        ;;
+    list)
+        found=0
+        for link in "$ROUTINES_DIR"/*; do
+            [ -L "$link" ] || continue
+            found=1
+            name=$(basename "$link")
+            printf '%-20s -> %s   ' "$name" "$(readlink -f "$link")"
+            "$INIT" status "$name" 2>/dev/null | sed "s/^$name: //"
+        done
+        [ "$found" = "1" ] || echo "Nenhuma rotina registrada."
+        ;;
+    start|stop|restart)
+        need_root "$1 $2"
+        valid_name "$2" || die "informe o nome da rotina"
+        [ -L "$ROUTINES_DIR/$2" ] || die "rotina '$2' nao encontrada"
+        "$INIT" "$1" "$2"
+        ;;
+    log)
+        valid_name "$2" || die "informe o nome da rotina"
+        [ -f "$LOG_DIR/$2.log" ] || die "ainda nao ha log de '$2'"
+        tail -n 30 "$LOG_DIR/$2.log"
+        ;;
+    ""|help|-h|--help)
+        usage
+        ;;
+    *)
+        echo "triolink-routine: comando desconhecido '$1'" >&2
+        echo >&2
+        usage >&2
+        exit 1
+        ;;
+esac
