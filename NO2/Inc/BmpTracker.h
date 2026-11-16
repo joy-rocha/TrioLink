@@ -16,7 +16,7 @@
 **************************************/
 /// Tempo maximo (ms) sem receber sensor/bmp/raw antes do dado ser
 /// considerado obsoleto (ver Schemas.md, secao "Regra de staleness").
-#define dBMP_TRACKER_STALE_THRESHOLD_MS    3000 // [ms]
+#define dBMP_TRACKER_STALE_THRESHOLD_MS    5000 // [ms]
 
 /**************************************
 * DEFINES PUBLICOS

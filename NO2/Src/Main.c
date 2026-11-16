@@ -55,7 +55,7 @@
 #define dNODE2_TOPIC_STATUS             "status/rasp2"          // [string]
 
 #define dNODE2_CALIB_SAMPLES            200   // [amostras, ~1s a 5ms cada]
-#define dNODE2_AVG_SAMPLES              10    // [amostras por publicacao]
+#define dNODE2_AVG_SAMPLES              15    // [amostras por publicacao]
 #define dNODE2_AVG_INTERVAL_MS          30    // [ms entre amostras da media]
 #define dNODE2_PUBLISH_PERIOD_S         1     // [s]
 
