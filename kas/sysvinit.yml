@@ -1,0 +1,16 @@
+# Variante sysvinit: distro triolink-sysvinit + layer meta-triolink-sysvinit.
+#   kas build kas/base.yml:kas/sysvinit.yml
+header:
+  version: 11
+
+distro: triolink-sysvinit
+
+repos:
+  meta-triolink:
+    layers:
+      meta-triolink-sysvinit:
+
+local_conf_header:
+  triolink-tmpdir: |
+    # tmp separado por init: os dois builds nao se misturam (sstate e downloads continuam compartilhados)
+    TMPDIR = "${TOPDIR}/tmp-sysvinit"

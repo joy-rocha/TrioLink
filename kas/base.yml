@@ -1,0 +1,43 @@
+# Parte comum a todas as imagens TrioLink. NAO use este arquivo sozinho:
+# combine com uma variante de init (o ":" junta os arquivos, da esquerda para a direita).
+#
+#   kas build kas/base.yml:kas/systemd.yml
+#   kas build kas/base.yml:kas/sysvinit.yml
+#
+# Com o Wi-Fi local (git-ignorado), acrescente no fim:  ...:kas.local.yml
+header:
+  version: 11
+
+machine: raspberrypi5
+target: triolink-image
+
+repos:
+  # sem url nem path: e este proprio repositorio (os meta-triolink-*).
+  # Aqui entra so a layer comum; cada variante acrescenta a layer do seu init.
+  meta-triolink:
+    layers:
+      meta-triolink-common:
+
+  poky:
+    url: https://git.yoctoproject.org/poky
+    branch: scarthgap
+    layers:
+      meta:
+      meta-poky:
+      meta-yocto-bsp:
+
+  meta-raspberrypi:
+    url: https://git.yoctoproject.org/meta-raspberrypi
+    branch: scarthgap
+
+  meta-openembedded:
+    url: https://github.com/openembedded/meta-openembedded.git
+    branch: scarthgap
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+
+local_conf_header:
+  triolink: |
+    CMDLINE_ROOT_PARTITION = "/dev/sda2"

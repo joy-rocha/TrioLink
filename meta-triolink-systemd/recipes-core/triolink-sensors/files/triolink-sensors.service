@@ -1,0 +1,13 @@
+[Unit]
+Description=Registra os sensores I2C do TrioLink (BMP280 e MPU6500)
+# modulos do KERNEL_MODULE_AUTOLOAD (bmp280-i2c, inv-mpu6050-i2c) ja carregados
+After=systemd-modules-load.service local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/triolink-sensors start
+ExecStop=/usr/sbin/triolink-sensors stop
+
+[Install]
+WantedBy=multi-user.target

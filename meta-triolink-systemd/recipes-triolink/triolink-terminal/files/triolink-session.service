@@ -1,0 +1,36 @@
+[Unit]
+Description=Sessao TrioLink no tty1 (primeiro boot + terminal)
+Documentation=man:getty(8)
+# mesma ordem do getty@.service: so depois de liberar logins
+After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
+After=rc-local.service
+Before=getty.target
+# assume o tty1: nunca convive com o getty padrao
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+IgnoreOnIsolate=yes
+ConditionPathExists=/dev/tty0
+# logout reinicia a sessao sem esbarrar no limite de reinicios
+StartLimitIntervalSec=0
+
+[Service]
+# espera o boot assentar para as mensagens nao se misturarem ao wizard
+Type=idle
+ExecStart=/usr/bin/triolink-session
+Restart=always
+RestartSec=1
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=tty1
+UtmpMode=user
+KillMode=process
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
+
+[Install]
+WantedBy=getty.target

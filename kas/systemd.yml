@@ -1,0 +1,16 @@
+# Variante systemd: distro triolink-systemd + layer meta-triolink-systemd.
+#   kas build kas/base.yml:kas/systemd.yml
+header:
+  version: 11
+
+distro: triolink-systemd
+
+repos:
+  meta-triolink:
+    layers:
+      meta-triolink-systemd:
+
+local_conf_header:
+  triolink-tmpdir: |
+    # tmp separado por init: os dois builds nao se misturam (sstate e downloads continuam compartilhados)
+    TMPDIR = "${TOPDIR}/tmp-systemd"

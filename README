@@ -1,41 +1,23 @@
-This README file contains information on the contents of the meta-triolink layer.
+meta-triolink: imagens TrioLink (Raspberry Pi 5, Yocto scarthgap) com systemd OU sysvinit
+=====================================================================================
 
-Please see the corresponding sections below for details.
+Este repositorio tem tres layers. Uma imagem usa SEMPRE a comum + UMA das de init:
 
-Dependencies
-============
+  meta-triolink-common    tudo que nao depende do init (kernel/overlays, terminal, wizard,
+                          Wi-Fi, sensores, rotinas, GPIO, libs) e a imagem triolink-image
+  meta-triolink-systemd   distro triolink-systemd + units/servicos + hora (timesyncd) + netwatch
+  meta-triolink-sysvinit  distro triolink-sysvinit + init scripts + inittab + hora (chrony)
 
-  URI: <first dependency>
-  branch: <branch name>
+NUNCA coloque as duas layers de init no mesmo build: as recipes tem os mesmos nomes.
 
-  URI: <second dependency>
-  branch: <branch name>
+Compilar com kas (a partir da pasta onde ficarao poky/ e build/):
 
-  .
-  .
-  .
+  kas build triolink/kas/base.yml:triolink/kas/systemd.yml
+  kas build triolink/kas/base.yml:triolink/kas/sysvinit.yml
 
-Patches
-=======
+Wi-Fi pre-configurado (arquivo local, git-ignorado), sempre por ultimo:
 
-Please submit any patches against the meta-triolink layer to the xxxx mailing list (xxxx@zzzz.org)
-and cc: the maintainer:
+  kas build triolink/kas/base.yml:triolink/kas/systemd.yml:kas.local.yml
 
-Maintainer: XXX YYYYYY <xxx.yyyyyy@zzzzz.com>
-
-Table of Contents
-=================
-
-  I. Adding the meta-triolink layer to your build
- II. Misc
-
-
-I. Adding the meta-triolink layer to your build
-=================================================
-
-Run 'bitbake-layers add-layer meta-triolink'
-
-II. Misc
-========
-
---- replace with specific information about the meta-triolink layer ---
+Sem kas: coloque meta-triolink-common e UMA das outras no BBLAYERS, defina
+DISTRO = "triolink-systemd" (ou "triolink-sysvinit") e rode: bitbake triolink-image

@@ -1,0 +1,14 @@
+[Unit]
+Description=Rotinas de inicializacao do TrioLink (triolink-routine)
+After=local-fs.target network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# as rotinas sobem em segundo plano e continuam rodando depois do start
+KillMode=process
+ExecStart=/usr/sbin/triolink-routines start
+ExecStop=/usr/sbin/triolink-routines stop
+
+[Install]
+WantedBy=multi-user.target

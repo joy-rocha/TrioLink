@@ -1,0 +1,92 @@
+#!/bin/sh
+# Vigia a conexao com a internet e tenta reestabelece-la quando cai.
+#
+# A cada INTERVAL segundos testa os TARGETS com ping. Se todos falharem,
+# sobe uma "escada" de tentativas, repetida para sempre enquanto ficar offline:
+#   1) reativa o perfil Wi-Fi          (FAILS_RECONNECT falhas seguidas)
+#   2) desliga e liga o radio Wi-Fi    (FAILS_RADIO)
+#   3) reinicia o NetworkManager       (FAILS_NM) e recomeca a escada
+# Opcional: REBOOT_AFTER segundos offline reinicia a placa (0 = desligado).
+# O perfil do Wi-Fi continua gravado em /etc, entao no proximo boot o
+# NetworkManager conecta sozinho (autoconnect).
+
+INTERVAL="${INTERVAL:-20}"
+TARGETS="${TARGETS:-8.8.8.8 1.1.1.1}"
+CONNECTION="${CONNECTION:-triolink-wifi}"
+IFACE="${IFACE:-wlan0}"
+FAILS_RECONNECT="${FAILS_RECONNECT:-3}"
+FAILS_RADIO="${FAILS_RADIO:-6}"
+FAILS_NM="${FAILS_NM:-12}"
+REBOOT_AFTER="${REBOOT_AFTER:-0}"
+
+log() { echo "triolink-netwatch: $*"; }
+
+uptime_s() { cut -d. -f1 /proc/uptime; }
+
+online() {
+    for t in $TARGETS; do
+        ping -c 1 -W 3 "$t" >/dev/null 2>&1 && return 0
+    done
+    return 1
+}
+
+reconnect() {
+    log "reativando o perfil '$CONNECTION'"
+    nmcli -w 30 connection up id "$CONNECTION" >/dev/null 2>&1 \
+        || nmcli -w 30 device connect "$IFACE" >/dev/null 2>&1 \
+        || log "nao foi possivel reativar o Wi-Fi agora"
+}
+
+cycle_radio() {
+    log "religando o radio Wi-Fi"
+    command -v rfkill >/dev/null 2>&1 && rfkill unblock wifi 2>/dev/null
+    nmcli radio wifi off >/dev/null 2>&1
+    sleep 2
+    nmcli radio wifi on >/dev/null 2>&1
+    sleep 10
+}
+
+restart_nm() {
+    log "reiniciando o NetworkManager"
+    systemctl restart NetworkManager
+    sleep 10
+}
+
+fails=0
+offline_since=""
+was_online=1
+
+while :; do
+    if online; then
+        if [ "$was_online" = "0" ]; then
+            log "conexao restabelecida"
+        fi
+        was_online=1
+        fails=0
+        offline_since=""
+    else
+        if [ "$was_online" = "1" ]; then
+            log "conexao caiu"
+            offline_since=$(uptime_s)
+        fi
+        was_online=0
+        fails=$((fails + 1))
+
+        if [ "$fails" -eq "$FAILS_RECONNECT" ]; then
+            reconnect
+        elif [ "$fails" -eq "$FAILS_RADIO" ]; then
+            cycle_radio
+        elif [ "$fails" -ge "$FAILS_NM" ]; then
+            restart_nm
+            fails=0
+        fi
+
+        if [ "$REBOOT_AFTER" -gt 0 ] && [ -n "$offline_since" ] \
+           && [ $(( $(uptime_s) - offline_since )) -ge "$REBOOT_AFTER" ]; then
+            log "offline ha mais de ${REBOOT_AFTER}s: reiniciando a placa"
+            systemctl reboot
+            sleep 60
+        fi
+    fi
+    sleep "$INTERVAL"
+done

@@ -1,0 +1,6 @@
+# Mesmo layout do sdimage-raspberrypi.wks (meta-raspberrypi), mas a particao /boot
+# entra no fstab por LABEL e com nofail. O wks original gera "/dev/mmcblk0p1 /boot",
+# que nao existe quando a placa boota por USB/SSD (/dev/sda) e, no systemd,
+# derrubava o boot para o modo de emergencia.
+part /boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label boot --active --align 4096 --size 100 --use-label --fsoptions "defaults,nofail"
+part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label root --align 4096

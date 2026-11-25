@@ -18,3 +18,8 @@ Thumbs.db
 
 #Ignorando o kas.local.yml
 kas.local.yml
+# repositorios que o kas clona e a pasta de build (quando o kas e executado na raiz deste repositorio)
+/poky/
+/meta-raspberrypi/
+/meta-openembedded/
+/build/

@@ -1,0 +1,14 @@
+[Unit]
+Description=Vigia a conexao e reconecta a rede quando cai (TrioLink)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/triolink-netwatch
+ExecStart=/usr/sbin/triolink-netwatch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

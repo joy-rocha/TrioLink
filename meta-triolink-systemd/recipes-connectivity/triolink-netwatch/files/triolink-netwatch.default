@@ -1,0 +1,20 @@
+# Ajustes do triolink-netwatch (todos opcionais; valores abaixo sao os padroes).
+# Depois de editar: sudo systemctl restart triolink-netwatch
+
+# segundos entre cada teste de conexao
+#INTERVAL=20
+
+# enderecos testados com ping (basta um responder para contar como "online")
+#TARGETS="8.8.8.8 1.1.1.1"
+
+# perfil do NetworkManager e interface Wi-Fi
+#CONNECTION=triolink-wifi
+#IFACE=wlan0
+
+# falhas seguidas ate cada etapa (com INTERVAL=20: 1 min, 2 min, 4 min)
+#FAILS_RECONNECT=3     # reativa o perfil Wi-Fi
+#FAILS_RADIO=6         # desliga e liga o radio Wi-Fi
+#FAILS_NM=12           # reinicia o NetworkManager (e recomeca a escada)
+
+# segundos offline ate reiniciar a placa; 0 = nunca reinicia
+#REBOOT_AFTER=0
