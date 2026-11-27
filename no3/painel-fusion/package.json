@@ -1,0 +1,9 @@
+{
+  "name": "painel-fusion",
+  "version": "1.0.0",
+  "description": "Back-end + painel para o tópico MQTT fusion/bmp_mpu",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "mqtt": "^5.10.0", "ws": "^8.18.0" },
+  "engines": { "node": ">=18" }
+}

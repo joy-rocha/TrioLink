@@ -82,6 +82,7 @@
 #define dFORMAT_PRESSURE                "%.0f Pa"
 #define dFORMAT_TEMPERATURE             "%.2f °C"
 #define dFORMAT_ACCEL                   "%.2f m/s²"
+#define dFORMAT_GYRO                    "%.2f rad/s"
 
 /// Layout da tela inicial
 #define dMENU_TITLE_Y                   30.0
@@ -100,6 +101,19 @@
 #define dSENSOR_VALUE_WIDTH             164.0
 #define dSENSOR_STATE_Y                 218.0
 #define dSENSOR_STATE_VALUE_X           84.0
+
+/// Layout da tela do MPU: duas colunas (acelerometro | giroscopio) x 3 eixos
+#define dMPU_COLUMN_LEFT_X              8.0
+#define dMPU_COLUMN_RIGHT_X             164.0
+#define dMPU_COLUMN_WIDTH               148.0
+#define dMPU_HEADING_Y                  84.0
+#define dMPU_ROW_FIRST_Y                100.0
+#define dMPU_ROW_STEP_Y                 36.0
+#define dMPU_ROW_HEIGHT                 30.0
+#define dMPU_LABEL_OFFSET_X             6.0
+#define dMPU_BOX_OFFSET_X               26.0
+#define dMPU_BOX_WIDTH                  122.0
+#define dMPU_FONT_SIZE_VALUE            14.0
 
 /// Botoes que existem na tela inicial
 typedef enum
@@ -533,6 +547,37 @@ static void BspScreen_DrawValueRow(cairo_t *cr, uint8_t row, const char *label, 
 }
 
 /*
+ * @brief   Desenha uma linha "eixo: [valor]" dentro de uma coluna da tela do MPU.
+ * @param   cr      - Contexto Cairo
+ * @param   columnX - Posicao x da coluna [pixels]
+ * @param   row     - Indice da linha (0 a 2)
+ * @param   label   - Nome do eixo
+ * @param   value   - Texto exibido dentro da caixa
+ * @retval  void
+ */
+static void BspScreen_DrawMpuAxisRow(cairo_t *cr,
+                                     double columnX,
+                                     uint8_t row,
+                                     const char *label,
+                                     const char *value)
+{
+    const double rowY = dMPU_ROW_FIRST_Y + ((double)row * dMPU_ROW_STEP_Y);
+    const double centerY = rowY + (dMPU_ROW_HEIGHT / 2.0);
+    const rect_t box = { columnX + dMPU_BOX_OFFSET_X, rowY, dMPU_BOX_WIDTH, dMPU_ROW_HEIGHT };
+
+    BspScreen_DrawText(cr, label, columnX + dMPU_LABEL_OFFSET_X, centerY,
+                       dFONT_SIZE_VALUE, false, false, &colorForeground);
+
+    BspScreen_RoundedRect(cr, &box);
+    BspScreen_SetColor(cr, &colorBorder);
+    cairo_set_line_width(cr, dLINE_WIDTH);
+    cairo_stroke(cr);
+
+    BspScreen_DrawText(cr, value, box.x + (box.width / 2.0), centerY,
+                       dMPU_FONT_SIZE_VALUE, false, true, &colorForeground);
+}
+
+/*
  * @brief   Desenha o estado do sensor no rodape.
  *          Prioridade: SEM DADOS > DADO OBSOLETO > ANORMAL > NORMAL.
  * @param   cr      - Contexto Cairo
@@ -616,31 +661,58 @@ static void BspScreen_DrawBmp(cairo_t *cr)
 }
 
 /*
- * @brief   Desenha a tela do MPU: aceleracao em x, y e z e estado.
+ * @brief   Desenha a tela do MPU: acelerometro (x, y, z) a esquerda,
+ *          giroscopio (x, y, z) a direita e estado.
  * @param   cr - Contexto Cairo
  * @retval  void
  */
 static void BspScreen_DrawMpu(cairo_t *cr)
 {
+    static const char *const axisNames[] = { "x:", "y:", "z:" };
     fusionMpu_t mpu;
-    char axisX[dTEXT_BUFFER_SIZE] = dTEXT_NO_DATA;
-    char axisY[dTEXT_BUFFER_SIZE] = dTEXT_NO_DATA;
-    char axisZ[dTEXT_BUFFER_SIZE] = dTEXT_NO_DATA;
+    float accel[3];
+    float gyro[3];
+    char accelText[3][dTEXT_BUFFER_SIZE];
+    char gyroText[3][dTEXT_BUFFER_SIZE];
+    uint8_t axis;
 
     (void)memset(&mpu, 0, sizeof(mpu));
     (void)Fusion_GetMpu(&mpu);
 
-    if(mpu.hasData == true)
+    accel[0] = mpu.accelX;
+    accel[1] = mpu.accelY;
+    accel[2] = mpu.accelZ;
+    gyro[0] = mpu.gyroX;
+    gyro[1] = mpu.gyroY;
+    gyro[2] = mpu.gyroZ;
+
+    for(axis = 0; axis < 3; axis++)
     {
-        (void)snprintf(axisX, sizeof(axisX), dFORMAT_ACCEL, (double)mpu.accelX);
-        (void)snprintf(axisY, sizeof(axisY), dFORMAT_ACCEL, (double)mpu.accelY);
-        (void)snprintf(axisZ, sizeof(axisZ), dFORMAT_ACCEL, (double)mpu.accelZ);
+        (void)snprintf(accelText[axis], sizeof(accelText[axis]), "%s", dTEXT_NO_DATA);
+        (void)snprintf(gyroText[axis], sizeof(gyroText[axis]), "%s", dTEXT_NO_DATA);
+
+        if(mpu.hasData == true)
+        {
+            (void)snprintf(accelText[axis], sizeof(accelText[axis]), dFORMAT_ACCEL,
+                           (double)accel[axis]);
+            (void)snprintf(gyroText[axis], sizeof(gyroText[axis]), dFORMAT_GYRO,
+                           (double)gyro[axis]);
+        }
     }
 
     BspScreen_DrawSensorHeader(cr, "MPU", mpu.connected);
-    BspScreen_DrawValueRow(cr, 0, "x:", axisX);
-    BspScreen_DrawValueRow(cr, 1, "y:", axisY);
-    BspScreen_DrawValueRow(cr, 2, "z:", axisZ);
+
+    BspScreen_DrawText(cr, "ACELERÔMETRO", dMPU_COLUMN_LEFT_X + (dMPU_COLUMN_WIDTH / 2.0),
+                       dMPU_HEADING_Y, dFONT_SIZE_INFO, true, true, &colorAccent);
+    BspScreen_DrawText(cr, "GIROSCÓPIO", dMPU_COLUMN_RIGHT_X + (dMPU_COLUMN_WIDTH / 2.0),
+                       dMPU_HEADING_Y, dFONT_SIZE_INFO, true, true, &colorAccent);
+
+    for(axis = 0; axis < 3; axis++)
+    {
+        BspScreen_DrawMpuAxisRow(cr, dMPU_COLUMN_LEFT_X, axis, axisNames[axis], accelText[axis]);
+        BspScreen_DrawMpuAxisRow(cr, dMPU_COLUMN_RIGHT_X, axis, axisNames[axis], gyroText[axis]);
+    }
+
     BspScreen_DrawState(cr, mpu.hasData, mpu.stale, mpu.health);
 }
 

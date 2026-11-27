@@ -48,22 +48,41 @@ typedef struct
 } fusionMpu_t;
 
 /*
- * @brief   Cria o cliente MQTT, assina os topicos e inicia a thread de rede.
- *          Se o broker estiver fora do ar, a conexao e tentada novamente
- *          em segundo plano.
- * @param   brokerHost - Endereco do broker (ex: "localhost")
- * @param   brokerPort - Porta do broker (ex: 1883)
- * @retval  true  - Cliente criado e thread iniciada
- * @retval  false - Parametro invalido ou falha ao criar o cliente
- */
-bool Fusion_Init(const char *brokerHost, int brokerPort);
-
-/*
- * @brief   Publica OFFLINE, desconecta do broker e libera os recursos.
+ * @brief   Zera o estado dos sensores. Nao cria conexao MQTT: a conexao e
+ *          da MqttWrapper (ver Main.c), que entrega as mensagens em
+ *          Fusion_OnMessage().
  * @param   void
  * @retval  void
  */
-void Fusion_Deinit(void);
+void Fusion_Init(void);
+
+/*
+ * @brief   Assina os topicos de dados e de status dos outros nos usando a
+ *          MqttWrapper. Deve ser chamada a cada (re)conexao com o broker,
+ *          pois a sessao e limpa (clean_session) e as assinaturas se perdem.
+ * @param   void
+ * @retval  true  - Todas as assinaturas foram solicitadas
+ * @retval  false - Alguma assinatura falhou
+ */
+bool Fusion_Subscribe(void);
+
+/*
+ * @brief   Callback de mensagens (mesma assinatura da MqttWrapper): direciona
+ *          o payload ao tratador do topico. Roda na thread de rede.
+ * @param   topic      - Topico da mensagem
+ * @param   payload    - Conteudo (nao e garantido terminar em zero)
+ * @param   payloadLen - Tamanho do conteudo [bytes]
+ * @retval  void
+ */
+void Fusion_OnMessage(const char *topic, const char *payload, uint32_t payloadLen);
+
+/*
+ * @brief   Informa que a conexao com o broker caiu: sem broker nao ha como
+ *          saber o status dos outros nos, entao ambos voltam para offline.
+ * @param   void
+ * @retval  void
+ */
+void Fusion_OnBrokerDisconnected(void);
 
 /*
  * @brief   Copia o estado atual do sensor BMP (thread-safe).

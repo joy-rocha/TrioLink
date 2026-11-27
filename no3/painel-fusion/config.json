@@ -1,0 +1,11 @@
+{
+  "broker": {
+    "host": "192.168.10.86",
+    "port": 8883,
+    "username": "interfce",
+    "password": "triolink",
+    "caFile": "./ca.crt",
+    "verifyHostname": false
+  },
+  "web": { "host": "0.0.0.0", "port": 3000 }
+}

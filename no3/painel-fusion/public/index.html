@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel Fusion · BMP + MPU</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0d1b24;--panel:#142632;--line:#243b4a;--txt:#e9e6da;--mut:#8da3b0;--amb:#ffb454;--cya:#4fd6c8;--cor:#ff7a7a;--lil:#b59cff;--ok:#6be08f;
+--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;--sans:'Space Grotesk',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(1200px 600px at 85% -10%,#173546 0,transparent 60%),var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh;padding:24px;max-width:1280px;margin:auto}
+header{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end;margin-bottom:22px}
+h1{font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-.02em}
+h1 small{display:block;font-size:14px;font-weight:400;color:var(--mut);letter-spacing:0;margin-top:4px;font-family:var(--mono)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button{font:500 14px var(--sans);background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--cya);color:var(--cya)}button.pri{background:var(--cya);color:#06231f;border-color:var(--cya)}button.pri:hover{color:#06231f;filter:brightness(1.1)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--amb);outline-offset:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
+.card h2{font-size:15px;font-weight:500;color:var(--mut);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;gap:16px}.st{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:16px}
+.dot{width:10px;height:10px;border-radius:50%;background:#56626b;display:inline-block;margin-right:8px;box-shadow:0 0 0 0 transparent}
+.on .dot{background:var(--ok);box-shadow:0 0 12px var(--ok)}.off .dot{background:var(--cor)}.warn .dot{background:var(--amb);box-shadow:0 0 12px var(--amb)}
+.stat{display:flex;flex-direction:column;gap:4px}.stat b{font-size:17px;display:flex;align-items:center}.stat span{font:12px var(--mono);color:var(--mut)}
+.hero{grid-template-columns:1.2fr 1fr 1fr;margin-bottom:16px}
+.big{font-size:clamp(44px,7vw,76px);font-weight:700;letter-spacing:-.04em;line-height:1}.big i{font-style:normal;font-size:.35em;color:var(--mut);margin-left:6px;font-weight:400;letter-spacing:0}
+.sub{font:13px var(--mono);color:var(--mut);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap}
+.tag{font:12px var(--mono);padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ok)}.tag.bad{color:var(--amb);border-color:var(--amb)}
+.imu{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-bottom:16px}
+.axes{display:grid;gap:10px}
+.ax{display:grid;grid-template-columns:22px 1fr 110px;align-items:center;gap:10px;font-family:var(--mono)}
+.ax em{font-style:normal;color:var(--mut)}.ax strong{text-align:right;font-weight:600;font-size:15px}
+.bar{height:8px;background:#0e202a;border-radius:9px;position:relative;overflow:hidden}
+.bar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.bar div{position:absolute;top:0;bottom:0;border-radius:9px;transition:.2s}
+.unit{font:12px var(--mono);color:var(--mut);margin-top:12px}
+.charts{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));margin-bottom:16px}
+canvas{max-height:230px}
+#hor{width:100%;max-width:150px;margin:auto;display:block}
+.hrow{display:flex;gap:16px;align-items:center}
+.log{font:12px/1.7 var(--mono);color:var(--mut);max-height:220px;overflow:auto;white-space:pre}
+dialog{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:18px;padding:24px;width:min(460px,92vw)}
+dialog::backdrop{background:#000a}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input{width:100%;background:#0e202a;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:14px var(--mono)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:12px;color:var(--mut);margin-top:14px;line-height:1.5}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.charts{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel Fusion<small>fusion/bmp_mpu · BMP + MPU</small></h1>
+  <div class="actions">
+    <button id="bDl" class="pri">Baixar histórico (.txt)</button>
+    <button id="bClr">Limpar histórico</button>
+  </div>
+</header>
+
+<section class="grid st">
+  <div class="card stat" id="sBroker"><span>Broker MQTT</span><b><i class="dot"></i><u style="text-decoration:none" id="tBroker">Desconectado</u></b><span id="dBroker">aguardando o servidor</span></div>
+  <div class="card stat" id="sFusion"><span>Mensagens de fusion/bmp_mpu</span><b><i class="dot"></i><u style="text-decoration:none" id="tFusion">Sem dados</u></b><span id="dFusion">nenhuma mensagem ainda</span></div>
+  <div class="card stat" id="r1"><span>status/rasp1 · BMP</span><b><i class="dot"></i><u style="text-decoration:none">–</u></b><span>aguardando…</span></div>
+  <div class="card stat" id="r2"><span>status/rasp2 · MPU</span><b><i class="dot"></i><u style="text-decoration:none">–</u></b><span>aguardando…</span></div>
+  <div class="card stat" id="r3"><span>status/rasp3 · Display</span><b><i class="dot"></i><u style="text-decoration:none">–</u></b><span>aguardando…</span></div>
+</section>
+
+<section class="grid hero">
+  <div class="card"><h2>Temperatura <span class="tag" id="stale">–</span></h2><div class="big"><span id="vT">--</span><i>°C</i></div><div class="sub"><span>BMP ts: <b id="tsB">–</b></span></div></div>
+  <div class="card"><h2>Pressão</h2><div class="big" style="font-size:clamp(34px,5vw,54px)"><span id="vP">--</span><i>Pa</i></div><div class="sub"><span id="vPh">– hPa</span></div></div>
+  <div class="card"><h2>Altitude</h2><div class="big" style="font-size:clamp(34px,5vw,54px)"><span id="vA">--</span><i>m</i></div><div class="sub"><span>Msg ts: <b id="tsM">–</b></span></div></div>
+</section>
+
+<section class="grid imu">
+  <div class="card"><h2>Acelerômetro <span style="font-family:var(--mono);font-size:12px">m/s²</span></h2>
+    <div class="hrow"><div class="axes" style="flex:1" id="accel"></div>
+    <svg id="hor" viewBox="-50 -50 100 100"><defs><clipPath id="cp"><circle r="46"/></clipPath></defs>
+      <g clip-path="url(#cp)"><g id="hg"><rect x="-120" y="-120" width="240" height="120" fill="#2a6f8f"/><rect x="-120" y="0" width="240" height="120" fill="#7a5a34"/><line x1="-120" x2="120" stroke="#e9e6da" stroke-width="1.5"/></g></g>
+      <circle r="46" fill="none" stroke="#243b4a" stroke-width="3"/><path d="M-22 0h14M8 0h14M0 0v0" stroke="#ffb454" stroke-width="3" stroke-linecap="round"/><circle r="2.5" fill="#ffb454"/></svg></div>
+    <div class="unit" id="rp">Inclinação: roll – · pitch –</div>
+  </div>
+  <div class="card"><h2>Giroscópio <span style="font-family:var(--mono);font-size:12px">rad/s</span></h2><div class="axes" id="gyro"></div><div class="unit">MPU ts: <span id="tsU">–</span></div></div>
+</section>
+
+<section class="grid charts">
+  <div class="card"><h2>Temperatura (°C)</h2><canvas id="cT"></canvas></div>
+  <div class="card"><h2>Pressão (hPa)</h2><canvas id="cP"></canvas></div>
+  <div class="card"><h2>Acelerômetro (m/s²)</h2><canvas id="cA"></canvas></div>
+  <div class="card"><h2>Giroscópio (rad/s)</h2><canvas id="cG"></canvas></div>
+</section>
+
+<section class="card"><h2>Histórico <span id="cnt" style="font-family:var(--mono);font-size:12px">0 registros</span></h2><div class="log" id="log">Nenhum registro ainda. Os dados recebidos aparecem aqui e ficam gravados no servidor.</div></section>
+
+
+<script>
+const $=id=>document.getElementById(id), TOPIC='fusion/bmp_mpu', STAT=['status/rasp1','status/rasp2','status/rasp3'];
+const MAXC=120, STALE_MS=10000;
+let last=0;
+const safe=(f,d)=>{try{return f()}catch(e){return d}};
+const fmt=(v,n=2)=>typeof v==='number'?v.toFixed(n):'--';
+const when=ms=>ms?new Date(ms).toLocaleTimeString('pt-BR')+'.'+String(ms%1000).padStart(3,'0'):'–';
+
+/* eixos */
+const AX=[['x','var(--cor)'],['y','var(--cya)'],['z','var(--amb)']];
+['accel','gyro'].forEach(g=>$(g).innerHTML=AX.map(([a,c])=>`<div class="ax"><em>${a}</em><div class="bar"><div id="${g}_${a}_b" style="background:${c}"></div></div><strong id="${g}_${a}">--</strong></div>`).join(''));
+function setAx(g,o,range){AX.forEach(([a])=>{const v=o&&o[a];$(`${g}_${a}`).textContent=fmt(v,3);const b=$(`${g}_${a}_b`);if(typeof v!=='number')return;const p=Math.max(-1,Math.min(1,v/range))*50;b.style.left=(p<0?50+p:50)+'%';b.style.width=Math.abs(p)+'%'})}
+
+/* gráficos */
+Chart.defaults.color='#8da3b0';Chart.defaults.font.family="'JetBrains Mono',monospace";Chart.defaults.font.size=11;
+const mk=(id,sets)=>new Chart($(id),{type:'line',data:{labels:[],datasets:sets.map(([l,c])=>({label:l,data:[],borderColor:c,backgroundColor:c+'22',borderWidth:2,pointRadius:0,tension:.3,fill:sets.length===1}))},
+  options:{animation:false,responsive:true,maintainAspectRatio:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:sets.length>1,labels:{boxWidth:10}}},scales:{x:{ticks:{maxTicksLimit:6},grid:{color:'#1c3140'}},y:{grid:{color:'#1c3140'}}}}});
+const cT=mk('cT',[['°C','#ffb454']]), cP=mk('cP',[['hPa','#4fd6c8']]),
+  cA=mk('cA',[['x','#ff7a7a'],['y','#4fd6c8'],['z','#ffb454']]), cG=mk('cG',[['x','#ff7a7a'],['y','#4fd6c8'],['z','#b59cff']]);
+function push(ch,label,vals){ch.data.labels.push(label);vals.forEach((v,i)=>ch.data.datasets[i].data.push(v));if(ch.data.labels.length>MAXC){ch.data.labels.shift();ch.data.datasets.forEach(d=>d.data.shift())}}
+
+/* histórico (gravado no servidor) */
+let logL=[];
+function showLog(n){$('cnt').textContent=n+' registros';$('log').textContent=logL.length?logL.slice().reverse().join('\n'):'Nenhum registro ainda.'}
+$('bDl').onclick=()=>{const a=document.createElement('a');a.href='/historico.txt';a.download='';a.click()};
+$('bClr').onclick=()=>{if(confirm('Apagar todo o histórico gravado no servidor?'))fetch('/api/clear',{method:'POST'}).then(()=>{logL=[];showLog(0)}).catch(()=>alert('Não foi possível limpar.'))};
+
+/* dados */
+function onData(m){
+  last=Date.now();
+  const b=m.bmp||{},u=m.mpu||{},a=u.accel||{},g=u.gyro||{};
+  $('vT').textContent=fmt(b.temperature,1);$('vP').textContent=fmt(b.pressure,0);$('vPh').textContent=fmt(b.pressure/100,2)+' hPa';$('vA').textContent=fmt(b.altitude,1);
+  $('tsB').textContent=when(b.timestamp);$('tsM').textContent=when(m.timestamp);$('tsU').textContent=when(u.timestamp);
+  const s=$('stale');s.textContent=b.stale?'BMP desatualizado':'BMP ao vivo';s.className='tag'+(b.stale?' bad':'');
+  setAx('accel',a,20);setAx('gyro',g,5);
+  if([a.x,a.y,a.z].every(v=>typeof v==='number')){const roll=Math.atan2(a.y,a.z)*180/Math.PI,pitch=Math.atan2(-a.x,Math.hypot(a.y,a.z))*180/Math.PI;
+    $('hg').setAttribute('transform',`rotate(${-roll.toFixed(1)}) translate(0 ${(pitch*0.5).toFixed(1)})`);$('rp').textContent=`Inclinação: roll ${roll.toFixed(1)}° · pitch ${pitch.toFixed(1)}°`}
+  const lb=when(m.timestamp||Date.now());
+  push(cT,lb,[b.temperature]);push(cP,lb,[typeof b.pressure==='number'?b.pressure/100:null]);push(cA,lb,[a.x,a.y,a.z]);push(cG,lb,[g.x,g.y,g.z]);
+  [cT,cP,cA,cG].forEach(c=>c.update('none'));
+}
+
+/* status */
+function setSt(id,cls,title,desc){const e=$(id);e.className='card stat '+cls;e.querySelector('u').textContent=title;e.querySelectorAll('span')[1].textContent=desc}
+function parseStatus(raw){
+  const ON=['online','on','1','true','ok','up','connected','ativo','alive'],OFF=['offline','off','0','false','down','disconnected','lost','dead','inativo'];
+  const test=v=>{const t=String(v).trim().toLowerCase();if(OFF.includes(t)||t.includes('offline'))return 0;if(ON.includes(t)||t.includes('online'))return 1;return null};
+  const j=safe(()=>JSON.parse(raw));
+  if(j&&typeof j==='object'){
+    for(const k of Object.keys(j)){if(['status','state','online','connected','alive','estado'].includes(k.toLowerCase())){const r=test(j[k]);if(r!==null)return r}}
+    return 1; // JSON sem campo de estado: recebeu mensagem = no ar
+  }
+  const r=test(j!==undefined?j:raw);return r===null?1:r}
+function brokerSt(cls,t,d){setSt('sBroker',cls,t,d)}
+setInterval(()=>{ // frescor do tópico principal
+  if(!last)return;const age=Date.now()-last;
+  setSt('sFusion',age<STALE_MS?'on':'off',age<STALE_MS?'Recebendo':'Parou de chegar','última há '+Math.round(age/1000)+' s')},1000);
+
+/* conexão com o servidor */
+function applyStatus(i,raw,at){const on=parseStatus(raw)===1;setSt('r'+i,on?'on':'off',on?'On':'Off','atualizado às '+new Date(at).toLocaleTimeString('pt-BR'))}
+function applyBroker(x){brokerSt(x.connected?'on':'off',x.connected?'Conectado':'Broker offline',x.detail||'')}
+function handle(m){
+  if(m.type==='snapshot'){applyBroker(m.broker);Object.entries(m.status).forEach(([i,x])=>applyStatus(i,x.raw,x.at));m.recent.forEach(onData);last=m.age===null?0:Date.now()-m.age;logL=m.lines;showLog(m.count)}
+  else if(m.type==='broker')applyBroker(m);
+  else if(m.type==='status')applyStatus(m.n,m.raw,m.at);
+  else if(m.type==='data'){onData(m.msg);logL.push(m.line);if(logL.length>40)logL.shift();showLog(m.count)}}
+function open(){const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  ws.onopen=()=>brokerSt('warn','Servidor conectado','aguardando o broker');
+  ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error(err)}};
+  ws.onclose=()=>{brokerSt('off','Servidor offline','sem conexão com o back-end · tentando de novo');setTimeout(open,3000)};
+  ws.onerror=()=>ws.close()}
+if(location.protocol==='file:')brokerSt('off','Abra pelo servidor','use http://localhost:3000, não o arquivo');else open();
+</script>
+</body>
+</html>
