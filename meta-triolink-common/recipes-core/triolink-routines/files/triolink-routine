@@ -1,13 +1,20 @@
 #!/bin/sh
-# Registra programas/scripts para iniciarem em todo boot da Raspberry.
+# Registra programas/scripts para iniciarem automaticamente na Raspberry.
 #
+# Rotinas de BOOT  (iniciam no boot, antes de qualquer login):
 #   sudo triolink-routine add /caminho/do/programa [nome]
+# Rotinas de LOGIN (iniciam so depois que o dono do programa digita usuario e senha):
+#   sudo triolink-routine add --login /caminho/do/programa [nome]
+#
 #   sudo triolink-routine remove nome
 #        triolink-routine list
-#   sudo triolink-routine start|stop|restart nome
+#        triolink-routine start|stop|restart nome   (boot: sudo / login: sem sudo)
 #        triolink-routine log nome
 
 ROUTINES_DIR="${ROUTINES_DIR:-/etc/triolink/routines.d}"
+LOGIN_DIR="${LOGIN_DIR:-/etc/triolink/login.d}"
+LOGIN_SCRIPT="${LOGIN_SCRIPT:-/etc/profile.d/triolink-login-routines.sh}"
+LOGIN_RUN_GLOB="${LOGIN_RUN_GLOB:-/tmp/triolink-login-*}"
 LOG_DIR="${LOG_DIR:-/var/log/triolink-routines}"
 INIT="${INIT:-/usr/sbin/triolink-routines}"
 
@@ -24,76 +31,216 @@ valid_name() {
     return 0
 }
 
+# "/home/QUALQUER_USUARIO/resto" vira "~/resto": o registro de login vale para
+# qualquer usuario, pois "~/" e a pasta pessoal de quem logou.
+portable_path() {
+    case "$1" in
+        /home/*/?*) echo "~/${1#/home/*/}" ;;
+        *) echo "$1" ;;
+    esac
+}
+
+# a rotina de login $1 (texto do link $2) esta rodando? diz por qual usuario
+login_status() {
+    suffix="${2#"~"}"
+    found=""
+    for pidf in $LOGIN_RUN_GLOB/"$1".pid; do
+        [ -f "$pidf" ] || continue
+        pid=$(cat "$pidf" 2>/dev/null)
+        [ -n "$pid" ] && [ -d "/proc/$pid" ] || continue
+        case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)" in
+            *"$suffix"*) found="$found$(stat -c %U "$pidf" 2>/dev/null) (pid $pid) " ;;
+        esac
+    done
+    if [ -n "$found" ]; then echo "rodando: $found"; else echo "parada"; fi
+}
+
+login_stop() {
+    suffix="${2#"~"}"
+    stopped=0
+    for pidf in $LOGIN_RUN_GLOB/"$1".pid; do
+        [ -f "$pidf" ] || continue
+        pid=$(cat "$pidf" 2>/dev/null)
+        [ -n "$pid" ] && [ -d "/proc/$pid" ] || continue
+        case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)" in
+            *"$suffix"*)
+                if kill "$pid" 2>/dev/null; then
+                    echo "Rotina '$1' parada (pid $pid)."; stopped=1
+                else
+                    echo "triolink-routine: sem permissao para parar o pid $pid (use sudo)" >&2
+                fi
+                ;;
+        esac
+    done
+    [ "$stopped" = "1" ] || echo "Rotina '$1' nao estava rodando."
+}
+
+login_start() {
+    [ -z "$SUDO_USER" ] || die "rotina de login inicia com o SEU usuario: rode sem sudo (triolink-routine start $1)"
+    [ -r "$LOGIN_SCRIPT" ] || die "'$LOGIN_SCRIPT' nao encontrado"
+    [ -t 0 ] || die "precisa ser rodado em um terminal"
+    out=$(TRIOLINK_ONLY="$1" TRIOLINK_LOGIN_DIR="$LOGIN_DIR" sh "$LOGIN_SCRIPT" 2>&1)
+    if [ -n "$out" ]; then echo "$out"
+    else echo "Nada iniciado: '$1' ja esta rodando ou o programa nao e do usuario '$(id -un)'."; fi
+}
+
 usage() {
     cat <<USO
-triolink-routine: programas que iniciam automaticamente em todo boot.
+triolink-routine: programas que iniciam automaticamente na Raspberry.
 
 Uso:
-  sudo triolink-routine add CAMINHO [NOME]   registra o programa para todo boot
-  sudo triolink-routine remove NOME          remove a rotina
-       triolink-routine list                 lista as rotinas e se estao rodando
-  sudo triolink-routine start NOME           inicia agora
-  sudo triolink-routine stop NOME            para agora
-  sudo triolink-routine restart NOME         reinicia agora
-       triolink-routine log NOME             mostra o final do log
-       triolink-routine help                 mostra esta ajuda
+  sudo triolink-routine add CAMINHO [NOME]           registra para todo BOOT
+  sudo triolink-routine add --login CAMINHO [NOME]   registra para o LOGIN: inicia so
+                                                     depois de digitar usuario e senha
+  sudo triolink-routine add --login --wait-network CAMINHO [NOME]
+                                                     igual, mas espera o Wi-Fi conectar (ate 90s)
+                                                     antes de iniciar. Outro tempo: --wait-network=120
+  sudo triolink-routine remove NOME                  remove a rotina (boot ou login)
+       triolink-routine list                         lista as rotinas e se estao rodando
+       triolink-routine start NOME                   inicia agora (boot: sudo; login: sem sudo)
+       triolink-routine stop NOME                    para agora
+       triolink-routine restart NOME                 reinicia agora
+       triolink-routine log NOME                     mostra o final do log
+       triolink-routine help                         mostra esta ajuda
 
-Exemplo:
-  chmod +x /home/luis/meu_programa
-  sudo triolink-routine add /home/luis/meu_programa leitura
-  triolink-routine list
+Exemplos:
+  sudo triolink-routine add /home/luis/leitura leitura
+  sudo triolink-routine add --login ~/gloriaa/cascata/build/cascata cascata
 
-O programa precisa ser executavel e roda com o usuario dono do arquivo.
-A saida fica em /var/log/triolink-routines/NOME.log.
+O programa precisa ser executavel. Rotina de boot roda com o dono do arquivo e
+loga em /var/log/triolink-routines/NOME.log. Rotina de login roda com quem logou
+(precisa ser o dono do arquivo) e loga em ~/.triolink/NOME.log. Se o caminho de
+uma rotina de login estiver em /home/USUARIO/..., ela e registrada como ~/...,
+entao funciona em qualquer placa, seja qual for o nome do usuario.
 USO
 }
 
-case "$1" in
+cmd="$1"
+case "$cmd" in
     add)
-        need_root "add $2 $3"
-        [ -n "$2" ] || die "informe o caminho. Ex.: sudo triolink-routine add /home/luis/meu_programa"
-        target=$(readlink -f "$2" 2>/dev/null)
-        [ -f "$target" ] || die "'$2' nao existe ou nao e um arquivo"
-        [ -x "$target" ] || die "'$target' nao e executavel. Rode: chmod +x $target"
-        case "$target" in
+        args="$*"
+        shift
+        login=0; path=""; name=""; wait=""
+        for a in "$@"; do
+            case "$a" in
+                --login|-l) login=1 ;;
+                --wait-network) wait=90 ;;
+                --wait-network=*)
+                    wait="${a#--wait-network=}"
+                    case "$wait" in ""|*[!0-9]*|0) die "use --wait-network=SEGUNDOS (numero maior que 0)" ;; esac
+                    ;;
+                *) if [ -z "$path" ]; then path="$a"
+                   elif [ -z "$name" ]; then name="$a"
+                   else die "argumentos demais: '$a'"; fi ;;
+            esac
+        done
+        need_root "$args"
+        [ -z "$wait" ] || [ "$login" = "1" ] || die "--wait-network so vale junto com --login"
+        [ -n "$path" ] || die "informe o caminho. Ex.: sudo triolink-routine add /home/luis/meu_programa"
+        case "$path" in
             *"'"*) die "o caminho nao pode conter aspas simples" ;;
         esac
-        name="${3:-$(basename "$target")}"
-        valid_name "$name" || die "nome invalido '$name' (use letras, numeros, . _ -)"
-        mkdir -p "$ROUTINES_DIR"
-        ln -sf "$target" "$ROUTINES_DIR/$name"
-        echo "Rotina '$name' registrada -> $target"
-        echo "Ela sera iniciada em todo boot. Para iniciar agora: sudo triolink-routine start $name"
+
+        if [ "$login" = "1" ]; then
+            case "$path" in
+                "~/"*)  # veio literal ("~/..."): vale para qualquer usuario, nao da para conferir agora
+                    stored="$path"
+                    echo "Aviso: '$path' vale como a pasta pessoal de quem logar; nao foi conferido agora."
+                    ;;
+                *)
+                    target=$(readlink -f "$path" 2>/dev/null)
+                    [ -f "$target" ] || die "'$path' nao existe ou nao e um arquivo"
+                    [ -x "$target" ] || die "'$target' nao e executavel. Rode: chmod +x $target"
+                    stored=$(portable_path "$target")
+                    ;;
+            esac
+            name="${name:-$(basename "$stored")}"
+            valid_name "$name" || die "nome invalido '$name' (use letras, numeros, . _ -)"
+            mkdir -p "$LOGIN_DIR"
+            ln -sfn "$stored" "$LOGIN_DIR/$name"
+            if [ -n "$wait" ]; then
+                echo "$wait" > "$LOGIN_DIR/.$name.wait"
+            else
+                rm -f "$LOGIN_DIR/.$name.wait"
+            fi
+            echo "Rotina de login '$name' registrada -> $stored"
+            [ -z "$wait" ] || echo "Ela espera a rede conectar (ate ${wait}s) antes de iniciar o programa."
+            echo "Ela inicia quando o dono do programa fizer login (usuario e senha)."
+            echo "Para iniciar agora, como esse usuario: triolink-routine start $name"
+            [ -r "$LOGIN_SCRIPT" ] || echo "Aviso: '$LOGIN_SCRIPT' nao esta instalado; sem ele a rotina nao dispara no login."
+        else
+            target=$(readlink -f "$path" 2>/dev/null)
+            [ -f "$target" ] || die "'$path' nao existe ou nao e um arquivo"
+            [ -x "$target" ] || die "'$target' nao e executavel. Rode: chmod +x $target"
+            name="${name:-$(basename "$target")}"
+            valid_name "$name" || die "nome invalido '$name' (use letras, numeros, . _ -)"
+            mkdir -p "$ROUTINES_DIR"
+            ln -sf "$target" "$ROUTINES_DIR/$name"
+            echo "Rotina '$name' registrada -> $target"
+            echo "Ela sera iniciada em todo boot. Para iniciar agora: sudo triolink-routine start $name"
+        fi
         ;;
     remove)
         need_root "remove $2"
         valid_name "$2" || die "informe o nome da rotina"
-        [ -L "$ROUTINES_DIR/$2" ] || die "rotina '$2' nao encontrada"
-        "$INIT" stop "$2" >/dev/null 2>&1
-        rm -f "$ROUTINES_DIR/$2"
-        echo "Rotina '$2' removida."
+        removed=0
+        if [ -L "$ROUTINES_DIR/$2" ]; then
+            "$INIT" stop "$2" >/dev/null 2>&1
+            rm -f "$ROUTINES_DIR/$2"
+            echo "Rotina de boot '$2' removida."; removed=1
+        fi
+        if [ -L "$LOGIN_DIR/$2" ]; then
+            login_stop "$2" "$(readlink "$LOGIN_DIR/$2")" >/dev/null 2>&1
+            rm -f "$LOGIN_DIR/$2" "$LOGIN_DIR/.$2.wait"
+            echo "Rotina de login '$2' removida."; removed=1
+        fi
+        [ "$removed" = "1" ] || die "rotina '$2' nao encontrada"
         ;;
     list)
         found=0
         for link in "$ROUTINES_DIR"/*; do
             [ -L "$link" ] || continue
+            if [ "$found" = "0" ]; then echo "Rotinas de boot:"; fi
             found=1
             name=$(basename "$link")
-            printf '%-20s -> %s   ' "$name" "$(readlink -f "$link")"
+            printf '  %-18s -> %s   ' "$name" "$(readlink -f "$link")"
             "$INIT" status "$name" 2>/dev/null | sed "s/^$name: //"
         done
-        [ "$found" = "1" ] || echo "Nenhuma rotina registrada."
+        foundl=0
+        for link in "$LOGIN_DIR"/*; do
+            [ -L "$link" ] || continue
+            if [ "$foundl" = "0" ]; then echo "Rotinas de login (iniciam quando o dono faz login):"; fi
+            foundl=1
+            name=$(basename "$link")
+            raw=$(readlink "$link")
+            printf '  %-18s -> %s   ' "$name" "$raw"
+            st=$(login_status "$name" "$raw")
+            w=$(cat "$LOGIN_DIR/.$name.wait" 2>/dev/null)
+            echo "$st${w:+ [espera a rede ate ${w}s]}"
+        done
+        [ "$found" = "1" ] || [ "$foundl" = "1" ] || echo "Nenhuma rotina registrada."
         ;;
     start|stop|restart)
-        need_root "$1 $2"
         valid_name "$2" || die "informe o nome da rotina"
-        [ -L "$ROUTINES_DIR/$2" ] || die "rotina '$2' nao encontrada"
-        "$INIT" "$1" "$2"
+        if [ -L "$ROUTINES_DIR/$2" ]; then
+            need_root "$cmd $2"
+            "$INIT" "$cmd" "$2"
+        elif [ -L "$LOGIN_DIR/$2" ]; then
+            raw=$(readlink "$LOGIN_DIR/$2")
+            case "$cmd" in
+                start)   login_start "$2" ;;
+                stop)    login_stop "$2" "$raw" ;;
+                restart) login_stop "$2" "$raw"; sleep 1; login_start "$2" ;;
+            esac
+        else
+            die "rotina '$2' nao encontrada"
+        fi
         ;;
     log)
         valid_name "$2" || die "informe o nome da rotina"
-        [ -f "$LOG_DIR/$2.log" ] || die "ainda nao ha log de '$2'"
-        tail -n 30 "$LOG_DIR/$2.log"
+        if [ -f "$LOG_DIR/$2.log" ]; then tail -n 30 "$LOG_DIR/$2.log"
+        elif [ -f "$HOME/.triolink/$2.log" ]; then tail -n 30 "$HOME/.triolink/$2.log"
+        else die "ainda nao ha log de '$2'"; fi
         ;;
     ""|help|-h|--help)
         usage
